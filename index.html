@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Consultation Prototype</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Consultation Prototype</h1>
+
+  <div id="status"></div>
+
+  <!-- Admin-only reset button (separate row + color) -->
+  <div class="admin-row">
+    <button id="btnReset">GenerateNewCustomer (admin)</button>
+  </div>
+
+  <!-- Main row: game screen on the left, log on the right -->
+  <div class="main-row">
+
+    <!-- LEFT: game screen -->
+    <div>
+      <div id="gameScreen">
+
+        <!-- Customer sprite: simple head + robe, bottom-center -->
+        <div id="customerSprite">
+          <!-- Body (robe) -->
+          <div id="spriteBody">
+            <!-- Left hand (semi-circle) -->
+            <div id="spriteHandLeft"></div>
+            <!-- Right hand (semi-circle) -->
+            <div id="spriteHandRight"></div>
+          </div>
+
+          <!-- Head -->
+          <div id="spriteHead">
+            <div id="spriteMouth"></div>
+          </div>
+
+        </div>
+
+        <!-- Gameplay UI layer: full overlay over the game screen -->
+        <div id="uiLayer">
+          <!-- Center area: placeholder buttons for now -->
+          <div id="uiCenterButtons">
+            <button id="btnSpawn"    class="gameButton">Initialize Customer Visit</button>
+            <button id="btnClick"    class="gameButton">Diagnose Type</button>
+            <button id="btnDiagnose" class="gameButton">Run Diagnosis</button>
+            <button id="btnLeave"    class="gameButton">Customer Leaves</button>
+          </div>
+        </div>
+
+
+        <!-- Speech balloon for greetings (outside diagnosis overlay) -->
+        <div id="greetingBalloon"></div>
+
+        <!-- Diagnosis overlay (for 四診 phase) -->
+        <div id="diagnosisOverlay" style="display: none;">
+          <!-- Action buttons (問/切) above customer -->
+          <div id="actionButtons">
+            <button id="btnAsk" class="actionButton">問</button>
+            <button id="btnPulse" class="actionButton">切</button>
+          </div>
+
+          <!-- Confidence bars on the right -->
+          <div id="confidenceBars"></div>
+
+          <!-- 拍板 button (commit diagnosis now) -->
+          <button id="btnCommitDiagnosis" class="commitButton">拍板</button>
+
+          <!-- Scattered clues container -->
+          <div id="cluesContainer"></div>
+
+          <!-- Speech balloon for 問 responses (inside diagnosis overlay) -->
+          <div id="speechBalloon"></div>
+
+          <!-- Question menu modal -->
+          <div id="questionMenu">
+            <div id="questionMenuContent">
+              <h3>問診</h3>
+              <div id="questionList"></div>
+              <button id="btnCloseMenu">Close</button>
+            </div>
+          </div>
+
+          <!-- Confirm diagnosis button (appears when ready) -->
+          <div id="diagnosisConfirmContainer">
+            <button id="btnConfirmDiagnosis" class="gameButton">Confirm Diagnosis</button>
+          </div>
+        </div>
+
+        <!-- Popup overlay (on top of game screen) -->
+        <div id="popupOverlay">
+
+          <!-- Type confirmation popup -->
+          <div id="typePopup">
+            <div id="typePopupText"></div>
+            <button id="btnTypeOk">OK</button>
+          </div>
+
+          <!-- Death notification popup -->
+          <div id="deathPopup">
+            <div id="deathPopupText"></div>
+            <button id="btnDeathOk">OK</button>
+          </div>
+
+          <!-- Pulse/Toxicity popup -->
+          <div id="pulsePopup">
+            <div id="pulsePopupText"></div>
+            <button id="btnPulseOk">OK</button>
+          </div>
+
+          <!-- Diagnosis Result popup -->
+          <div id="diagnosisResultPopup">
+            <h3>Diagnosis Result</h3>
+            <div id="diagnosisResultText"></div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+              <button id="btnDiagnosisResultExport">Export</button>
+              <button id="btnDiagnosisResultOk">OK</button>
+            </div>
+          </div>
+
+          <!-- Diagnosis Selection UI (for 拍板) -->
+          <div id="diagnosisSelectionUI">
+            <h3>診斷選擇 (Diagnosis Selection)</h3>
+            <div id="diagnosisSelectionContent">
+              <div id="needsSelectionArea"></div>
+              <div id="toxicityDisplayArea"></div>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+              <button id="btnDiagnosisSelectionCancel">取消</button>
+              <button id="btnDiagnosisSelectionConfirm">確認診斷</button>
+            </div>
+          </div>
+
+          <!-- Handoff Screen (問診 → 煉丹) -->
+          <div id="handoffScreen">
+            <h3>問診流程已結束</h3>
+            <div id="handoffContent">
+              <p>下一步會進入 煉丹系統</p>
+              <p>但本 prototype 不做煉丹，只是：</p>
+              <ul style="text-align: left; margin: 20px 0;">
+                <li>先提供「交給煉丹系統的輸出」（前一畫面）</li>
+                <li>然後讓玩家去外部煉丹系統跑一次</li>
+                <li>再回來這邊手動輸入煉丹結果</li>
+              </ul>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+              <button id="btnHandoffProceed">Proceed to input alchemy results</button>
+            </div>
+          </div>
+
+          <!-- Post-Alchemy Feedback Screen -->
+          <div id="postAlchemyScreen">
+            <h3>治療結果</h3>
+            <div id="postAlchemyContent">
+              <p>顧客服用了丹藥。</p>
+              <p>顧客的毒性已變化。下次可以用「切」確認。如果毒性很高，也會反映在膚色上。</p>
+              <p>顧客對上一次治療的滿意度會表現在臉上。下次來訪時，觀察嘴型。</p>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+              <button id="btnPostAlchemyContinue">繼續</button>
+            </div>
+          </div>
+
+          <!-- Alchemy Input UI -->
+          <div id="alchemyInputUI">
+            <h3>Alchemy Results Input</h3>
+            <div id="alchemyInputContent">
+              <div id="pillsContainer"></div>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+              <button id="btnAlchemyInputConfirm">Confirm</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: log, same height as game screen -->
+    <pre id="log"></pre>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

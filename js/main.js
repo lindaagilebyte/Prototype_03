@@ -1,0 +1,913 @@
+import { Customer } from './customer.js';
+import * as Utils from './utils.js';
+import * as UI from './ui.js';
+import * as Clues from './clues.js';
+import * as Diagnosis from './diagnosis.js';
+
+// --- App State ---
+const customer = new Customer(Utils.namePool, Utils.clothesColorPool, Utils.skinTonePool);
+const ui = UI.getElements();
+let currentVisitState = Utils.VisitState.NoActiveVisit;
+let currentDiagnosis = null;
+let typePopupVisible = false;
+let deathPopupVisible = false;
+let baseMouthBottom = 28;
+let greetingShowing = false;
+
+// Game data (loaded from CSV)
+let needsData = [];
+let cluesData = [];
+
+// Current visit clue selection
+let currentClueSelection = null;
+
+function popupActive() {
+  // Check if any popup is visible
+  const popupOverlay = document.getElementById('popupOverlay');
+  if (popupOverlay && popupOverlay.style.display === 'flex') {
+    // Check which popup is active
+    const postAlchemy = document.getElementById('postAlchemyScreen');
+    const handoff = document.getElementById('handoffScreen');
+    const alchemyInput = document.getElementById('alchemyInputUI');
+    if ((postAlchemy && postAlchemy.style.display === 'block') ||
+        (handoff && handoff.style.display === 'block') ||
+        (alchemyInput && alchemyInput.style.display === 'block')) {
+      return true;
+    }
+  }
+  return typePopupVisible || deathPopupVisible;
+}
+
+function log(line) {
+  UI.logLine(ui, line);
+}
+
+function updateStatusAndUI() {
+  UI.updateStatus(ui, customer, currentVisitState);
+  UI.updateCustomerSprite(ui, customer, currentVisitState, Utils);
+  UI.updateButtons(ui, {
+    popupActive: popupActive(),
+    customer,
+    visitState: currentVisitState,
+    diagnosis: currentDiagnosis
+  });
+  updateGameScreenControls();
+
+  // Hide popup overlay if not in any popup state
+  if (currentVisitState === Utils.VisitState.NoActiveVisit && !popupActive()) {
+    UI.hidePopupOverlay(ui);
+  }
+}
+
+// Expose for diagnosis.js
+window.updateStatusAndUI = updateStatusAndUI;
+
+function updateGameScreenControls() {
+  // If diagnosis overlay is active, hide all center buttons
+  const diagnosisOverlay = document.getElementById('diagnosisOverlay');
+  const diagnosisActive = diagnosisOverlay && diagnosisOverlay.classList.contains('active');
+  
+  if (diagnosisActive) {
+    UI.showOnlyButton(ui, null);
+    return;
+  }
+  
+  if (!customer.alive) {
+    UI.showOnlyButton(ui, null);
+    return;
+  }
+  if (currentVisitState === Utils.VisitState.NoActiveVisit) {
+    UI.showOnlyButton(ui, 'btnSpawn');
+  } else if (currentVisitState === Utils.VisitState.VisitInProgress) {
+    if (customer.constitution === null) {
+      UI.showOnlyButton(ui, 'btnClick');
+    } else if (greetingShowing) {
+      // Hide button while greeting is showing
+      UI.showOnlyButton(ui, null);
+    } else if (currentDiagnosis === null) {
+      UI.showOnlyButton(ui, 'btnDiagnose');
+    } else {
+      UI.showOnlyButton(ui, 'btnLeave');
+    }
+  }
+}
+
+function showCustomerGreeting() {
+  // Find main need
+  const mainNeed = customer.needs.find(n => n.isMain);
+  if (!mainNeed) {
+    console.log('No main need found');
+    greetingShowing = false;
+    updateStatusAndUI();
+    return;
+  }
+  
+  // Find greeting text from needsData
+  const needData = needsData.find(n => n.code === mainNeed.code);
+  if (!needData || !needData.greetingText) {
+    console.log('No greeting text found for need:', mainNeed.code);
+    greetingShowing = false;
+    updateStatusAndUI();
+    return;
+  }
+  
+  console.log('Showing greeting:', needData.greetingText);
+  // greetingShowing should already be set to true by caller
+  if (!greetingShowing) {
+    greetingShowing = true;
+    updateStatusAndUI(); // Hide buttons
+  }
+  
+  // Show greeting balloon (separate from diagnosis speech balloon)
+  const balloon = document.getElementById('greetingBalloon');
+  if (!balloon) {
+    console.error('Greeting balloon element not found!');
+    return;
+  }
+  
+  balloon.textContent = needData.greetingText;
+  balloon.style.display = 'block';
+  balloon.style.visibility = 'visible';
+  balloon.style.opacity = '1';
+  balloon.classList.add('active');
+  balloon.classList.remove('fade-out');
+  
+  console.log('Greeting balloon shown:', needData.greetingText);
+  
+  // Hide after 3 seconds (longer for greeting)
+  setTimeout(() => {
+    balloon.classList.add('fade-out');
+    setTimeout(() => {
+      balloon.classList.remove('active', 'fade-out');
+      balloon.style.display = 'none';
+      balloon.style.visibility = 'hidden';
+      greetingShowing = false;
+      updateStatusAndUI(); // Show "Run Diagnosis" button
+    }, 300);
+  }, 3000);
+}
+
+// --- Button Handlers ---
+ui.btnReset.onclick = () => {
+  customer.reset();
+  currentVisitState = Utils.VisitState.NoActiveVisit;
+  currentDiagnosis = null;
+  typePopupVisible = false;
+  deathPopupVisible = false;
+  UI.hidePopupOverlay(ui);
+  ui.logEl.textContent = '';
+  log('*** ADMIN: customer reset to fresh state. ***');
+  updateStatusAndUI();
+};
+
+ui.btnSpawn.onclick = () => {
+  if (!customer.alive) return;
+  if (currentVisitState !== Utils.VisitState.NoActiveVisit) {
+    log('InitializeCustomerVisit ignored (visit already in progress).');
+    return;
+  }
+  
+  // First-time setup: assign name and visuals
+  const isFirstEver = customer.name === null;
+  customer.assignNameAndVisuals();
+  
+  if (isFirstEver) {
+    log(`Name assigned: ${customer.name}.`);
+    log(`Visuals: clothesColor=${customer.clothesColor}, skinBase=${customer.skinBaseColor}.`);
+  }
+  
+  // Needs management
+  if (customer.needs.length === 0) {
+    // First visit ever: initialize needs
+    customer.initializeNeeds(needsData);
+    const needsCodes = customer.needs.map(n => n.code + (n.isMain ? '(main)' : '')).join('');
+    log(`Needs initialized: ${needsCodes}`);
+    const needsDetails = customer.needs.map(n => {
+      const data = needsData.find(nd => nd.code === n.code);
+      return `  ${n.code}: ${data.label}`;
+    }).join('\n');
+    log(`Needs details:\n${needsDetails}`);
+  } else {
+    // Subsequent visit: check for need changes
+    log('Checking for need changes...');
+    const changes = customer.updateSecondaryNeeds(needsData);
+    if (changes) {
+      if (changes.removed.length > 0) {
+        log(`  Removed: ${changes.removed.join(', ')}`);
+      }
+      if (changes.added.length > 0) {
+        log(`  Added: ${changes.added.join(', ')}`);
+      }
+    } else {
+      log('  No secondary need changes.');
+    }
+    const needsCodes = customer.needs.map(n => n.code + (n.isMain ? '(main)' : '')).join('');
+    log(`Current needs: ${needsCodes}`);
+  }
+  
+  currentVisitState = Utils.VisitState.VisitInProgress;
+  currentDiagnosis = null;
+  log('Customer appears for a new visit.');
+  
+  // If constitution already assigned (returning customer), show greeting immediately
+  if (customer.constitution !== null) {
+    // Set flag immediately to prevent button from showing
+    greetingShowing = true;
+    updateStatusAndUI(); // Hide button immediately
+    
+    // Small delay to let customer sprite appear first
+    setTimeout(() => {
+      showCustomerGreeting();
+    }, 300);
+  }
+  
+  // Select clues for this visit
+  currentClueSelection = Clues.selectCluesForVisit(customer, cluesData, needsData);
+  log(`Selected ${currentClueSelection.selectedClues.length} clues for this visit.`);
+  
+  // Log confidence totals
+  const confLog = needsData.map(need => {
+    const conf = currentClueSelection.confidences[need.code] || 0;
+    const hasNeed = customer.needs.some(n => n.code === need.code);
+    const marker = hasNeed ? '✓' : ' ';
+    return `  [${marker}] ${need.code}: ${conf}`;
+  }).join('\n');
+  log(`Diagnosis Confidence totals:\n${confLog}`);
+  
+  // Log warnings if any
+  if (currentClueSelection.warnings.length > 0) {
+    currentClueSelection.warnings.forEach(warning => log(warning));
+  }
+  
+  // Log selected clues (just IDs and methods for now)
+  const cluesList = currentClueSelection.selectedClues.map(c => `${c.id}(${c.method})`).join(', ');
+  log(`Clues: ${cluesList}`);
+  
+  updateStatusAndUI();
+};
+
+ui.btnClick.onclick = () => {
+  if (!customer.alive) return;
+  if (currentVisitState !== Utils.VisitState.VisitInProgress) {
+    log('ClickCustomer ignored (no visit in progress).');
+    return;
+  }
+  if (customer.constitution === null) {
+    customer.assignConstitution(Utils.constitutionTypes);
+    log(`Constitution assigned: ${customer.constitution}.`);
+    UI.showTypePopup(ui, customer);
+    typePopupVisible = true;
+    deathPopupVisible = false;
+    
+    // Show greeting after type popup is closed
+    // We'll trigger it when popup closes
+  } else {
+    log('ClickCustomer ignored (constitution already assigned).');
+  }
+  updateStatusAndUI();
+};
+
+ui.btnDiagnose.onclick = () => {
+  if (!customer.alive) return;
+  if (currentVisitState !== Utils.VisitState.VisitInProgress) {
+    log('RunDiagnosis ignored (no visit in progress).');
+    return;
+  }
+  if (customer.constitution === null) {
+    log('RunDiagnosis ignored (constitution not assigned yet).');
+    return;
+  }
+  if (currentDiagnosis !== null) {
+    log('RunDiagnosis ignored (diagnosis already done this visit).');
+    return;
+  }
+  
+  // Check if diagnosis overlay is already active
+  const diagnosisOverlay = document.getElementById('diagnosisOverlay');
+  if (diagnosisOverlay.classList.contains('active')) {
+    log('RunDiagnosis ignored (diagnosis already in progress).');
+    return;
+  }
+  
+  // Start interactive diagnosis phase
+  log('Starting diagnosis...');
+  
+  Diagnosis.startDiagnosis(customer, currentClueSelection, needsData, (diagnosedStateFromPopup) => {
+    // Diagnosis complete callback - receives diagnosed state from popup
+    
+    // TRUTH / INTERNAL STATE (what the system knows)
+    const truthState = {
+      constitution: customer.constitution,
+      needs: customer.needs.map(n => ({ code: n.code, isMain: n.isMain })),
+      toxicity: {
+        current: customer.currentToxicity,
+        max: customer.maxToxicity
+      }
+    };
+    
+    // DIAGNOSED / PLAYER-OBSERVED STATE (what player discovered - may be incomplete)
+    const diagnosedState_final = diagnosedStateFromPopup || {
+      constitution: null,
+      needs: [],
+      toxicity: null,
+      collectedConfidences: {}
+    };
+    
+    // Store both in currentDiagnosis
+    currentDiagnosis = {
+      truth: truthState,
+      diagnosed: diagnosedState_final
+    };
+    
+    // Sort needs for display: main needs first
+    const sortedTruthNeeds = [...truthState.needs].sort((a, b) => {
+      if (a.isMain && !b.isMain) return -1;
+      if (!a.isMain && b.isMain) return 1;
+      return 0;
+    });
+    const sortedDiagnosedNeeds = [...diagnosedState_final.needs].sort((a, b) => {
+      if (a.isMain && !b.isMain) return -1;
+      if (!a.isMain && b.isMain) return 1;
+      return 0;
+    });
+    
+    // Log both states clearly
+    const truthNeedsSummary = sortedTruthNeeds
+      .map(n => n.code)
+      .join(', ');
+    
+    log('=== TRUTH / INTERNAL STATE ===');
+    log(`Constitution: ${truthState.constitution}`);
+    log(`Needs: ${truthNeedsSummary}`);
+    log(`Toxicity: ${truthState.toxicity.current}/${truthState.toxicity.max}`);
+    
+    log('=== DIAGNOSED / PLAYER-OBSERVED STATE ===');
+    if (diagnosedState_final.constitution) {
+      log(`Constitution: ${diagnosedState_final.constitution}`);
+    } else {
+      log(`Constitution: Not diagnosed`);
+    }
+    
+    if (diagnosedState_final.needs && diagnosedState_final.needs.length > 0) {
+      const diagnosedNeedsSummary = sortedDiagnosedNeeds
+        .map(n => n.code)
+        .join(', ');
+      log(`Needs: ${diagnosedNeedsSummary}`);
+    } else {
+      log(`Needs: Not diagnosed`);
+    }
+    
+    if (diagnosedState_final.toxicity) {
+      // Toxicity is now a string term (微毒/積毒/深毒/劇毒/未明), not an object
+      if (typeof diagnosedState_final.toxicity === 'string') {
+        log(`Toxicity: ${diagnosedState_final.toxicity}`);
+      } else {
+        // Legacy format (shouldn't happen, but handle it)
+        log(`Toxicity: ${diagnosedState_final.toxicity.current}/${diagnosedState_final.toxicity.max}`);
+      }
+    } else {
+      log(`Toxicity: Not diagnosed`);
+    }
+    
+    updateStatusAndUI();
+  });
+};
+
+ui.btnLeave.onclick = () => {
+  if (!customer.alive) return;
+  if (currentVisitState !== Utils.VisitState.VisitInProgress) {
+    log('CustomerLeaves ignored (no visit in progress).');
+    return;
+  }
+  if (currentDiagnosis === null) {
+    log('CustomerLeaves ignored (no diagnosis output for this visit).');
+    return;
+  }
+  currentVisitState = Utils.VisitState.NoActiveVisit;
+  log('Diagnosis output sent to alchemy.');
+  
+  // Show handoff screen first
+  showHandoffScreen(customer, needsData);
+};
+
+ui.btnTypeOk.onclick = () => {
+  typePopupVisible = false;
+  UI.hidePopupOverlay(ui);
+  
+  // Set flag immediately to prevent button from showing, then update UI
+  greetingShowing = true;
+  updateStatusAndUI(); // Hide button immediately
+  
+  // Show greeting after type is confirmed (small delay to ensure UI is updated)
+  setTimeout(() => {
+    showCustomerGreeting();
+  }, 50);
+};
+ui.btnDeathOk.onclick = () => {
+  deathPopupVisible = false;
+  UI.hidePopupOverlay(ui);
+  log('Death popup closed.');
+  updateStatusAndUI();
+};
+
+// Show handoff screen
+function showHandoffScreen(customer, needsData) {
+  const popupOverlay = document.getElementById('popupOverlay');
+  const handoffScreen = document.getElementById('handoffScreen');
+  
+  // Show handoff screen
+  popupOverlay.style.display = 'flex';
+  popupOverlay.style.zIndex = '30000';
+  handoffScreen.style.display = 'block';
+  document.getElementById('typePopup').style.display = 'none';
+  document.getElementById('deathPopup').style.display = 'none';
+  document.getElementById('pulsePopup').style.display = 'none';
+  document.getElementById('diagnosisResultPopup').style.display = 'none';
+  document.getElementById('diagnosisSelectionUI').style.display = 'none';
+  document.getElementById('alchemyInputUI').style.display = 'none';
+  
+  // Set up Proceed button
+  const btnProceed = document.getElementById('btnHandoffProceed');
+  btnProceed.onclick = () => {
+    // Close handoff screen
+    popupOverlay.style.display = 'none';
+    handoffScreen.style.display = 'none';
+    
+    // Show alchemy input UI
+    showAlchemyInputUI(customer, needsData);
+  };
+}
+
+// Show post-alchemy feedback screen
+function showPostAlchemyScreen() {
+  const popupOverlay = document.getElementById('popupOverlay');
+  const postAlchemyScreen = document.getElementById('postAlchemyScreen');
+  
+  // Show post-alchemy screen
+  popupOverlay.style.display = 'flex';
+  popupOverlay.style.zIndex = '30000';
+  postAlchemyScreen.style.display = 'block';
+  document.getElementById('typePopup').style.display = 'none';
+  document.getElementById('deathPopup').style.display = 'none';
+  document.getElementById('pulsePopup').style.display = 'none';
+  document.getElementById('diagnosisResultPopup').style.display = 'none';
+  document.getElementById('diagnosisSelectionUI').style.display = 'none';
+  document.getElementById('alchemyInputUI').style.display = 'none';
+  document.getElementById('handoffScreen').style.display = 'none';
+  
+  // Set up Continue button
+  const btnContinue = document.getElementById('btnPostAlchemyContinue');
+  btnContinue.onclick = () => {
+    // Close post-alchemy screen
+    popupOverlay.style.display = 'none';
+    postAlchemyScreen.style.display = 'none';
+    
+    // Update UI to show "Initialize Customer Visit" button
+    updateStatusAndUI();
+  };
+}
+
+// Show alchemy input UI
+function showAlchemyInputUI(customer, needsData) {
+  const popupOverlay = document.getElementById('popupOverlay');
+  const alchemyUI = document.getElementById('alchemyInputUI');
+  const pillsContainer = document.getElementById('pillsContainer');
+  
+  // Initialize/reset alchemy result data
+  let alchemyResult = {
+    pills: [
+      { needs: [], toxicity: null, wuxing: null, quality: null },
+      { needs: [], toxicity: null, wuxing: null, quality: null },
+      { needs: [], toxicity: null, wuxing: null, quality: null }
+    ]
+  };
+  
+  // Clear previous content
+  pillsContainer.innerHTML = '';
+  
+  // Create 3 pill input groups
+  for (let i = 0; i < 3; i++) {
+    const pillGroup = document.createElement('div');
+    pillGroup.className = 'pillInputGroup';
+    pillGroup.innerHTML = `<h4>Pill ${i + 1}</h4>`;
+    
+    // Need 1 dropdown
+    const need1Row = document.createElement('div');
+    need1Row.className = 'pillInputRow';
+    need1Row.innerHTML = `
+      <label>Need 1:</label>
+      <select id="pill${i}_need1" class="pillNeedSelect">
+        <option value="">-- Select --</option>
+        ${needsData.map(n => `<option value="${n.code}">${n.code}: ${n.label}</option>`).join('')}
+      </select>
+    `;
+    
+    // Need 2 dropdown
+    const need2Row = document.createElement('div');
+    need2Row.className = 'pillInputRow';
+    need2Row.innerHTML = `
+      <label>Need 2:</label>
+      <select id="pill${i}_need2" class="pillNeedSelect">
+        <option value="">-- Select --</option>
+        ${needsData.map(n => `<option value="${n.code}">${n.code}: ${n.label}</option>`).join('')}
+      </select>
+    `;
+    
+    // Toxicity input
+    const toxicityRow = document.createElement('div');
+    toxicityRow.className = 'pillInputRow';
+    toxicityRow.innerHTML = `
+      <label>Toxicity:</label>
+      <input type="number" id="pill${i}_toxicity" min="0" step="0.01" placeholder="0.00">
+    `;
+    
+    // 五行 dropdown
+    const wuxingRow = document.createElement('div');
+    wuxingRow.className = 'pillInputRow';
+    wuxingRow.innerHTML = `
+      <label>五行:</label>
+      <select id="pill${i}_wuxing" class="pillWuxingSelect">
+        <option value="">-- Select --</option>
+        ${Utils.constitutionTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+      </select>
+    `;
+    
+    // Quality dropdown
+    const qualityRow = document.createElement('div');
+    qualityRow.className = 'pillInputRow';
+    qualityRow.innerHTML = `
+      <label>Quality:</label>
+      <select id="pill${i}_quality" class="pillQualitySelect">
+        <option value="U">U</option>
+        <option value="S">S</option>
+        <option value="A">A</option>
+        <option value="B" selected>B</option>
+        <option value="C">C</option>
+      </select>
+    `;
+    
+    pillGroup.appendChild(need1Row);
+    pillGroup.appendChild(need2Row);
+    pillGroup.appendChild(toxicityRow);
+    pillGroup.appendChild(wuxingRow);
+    pillGroup.appendChild(qualityRow);
+    pillsContainer.appendChild(pillGroup);
+    
+    // Handle need selection changes - remove selected option from other dropdown
+    const need1Select = document.getElementById(`pill${i}_need1`);
+    const need2Select = document.getElementById(`pill${i}_need2`);
+    
+    need1Select.addEventListener('change', () => {
+      updateNeedDropdowns(need1Select, need2Select, needsData);
+    });
+    
+    need2Select.addEventListener('change', () => {
+      updateNeedDropdowns(need2Select, need1Select, needsData);
+    });
+  }
+  
+  // Function to update need dropdowns (remove selected option from other)
+  function updateNeedDropdowns(selectedSelect, otherSelect, needsData) {
+    const selectedValue = selectedSelect.value;
+    const otherValue = otherSelect.value;
+    
+    // Rebuild other dropdown
+    otherSelect.innerHTML = '<option value="">-- Select --</option>';
+    needsData.forEach(need => {
+      if (need.code !== selectedValue) {
+        const option = document.createElement('option');
+        option.value = need.code;
+        option.textContent = `${need.code}: ${need.label}`;
+        if (need.code === otherValue) {
+          option.selected = true;
+        }
+        otherSelect.appendChild(option);
+      }
+    });
+  }
+  
+  // Show UI
+  popupOverlay.style.display = 'flex';
+  popupOverlay.style.zIndex = '30000';
+  alchemyUI.style.display = 'block';
+  document.getElementById('typePopup').style.display = 'none';
+  document.getElementById('deathPopup').style.display = 'none';
+  document.getElementById('pulsePopup').style.display = 'none';
+  document.getElementById('diagnosisResultPopup').style.display = 'none';
+  document.getElementById('diagnosisSelectionUI').style.display = 'none';
+  
+  // Validation function to check that all pills with data are complete
+  function validateAlchemyInput() {
+    let hasCompletePill = false;
+    let hasIncompletePill = false;
+    const incompletePillNumbers = [];
+    
+    for (let i = 0; i < 3; i++) {
+      const need1 = document.getElementById(`pill${i}_need1`).value;
+      const need2 = document.getElementById(`pill${i}_need2`).value;
+      const toxicity = document.getElementById(`pill${i}_toxicity`).value;
+      const wuxing = document.getElementById(`pill${i}_wuxing`).value;
+      const quality = document.getElementById(`pill${i}_quality`).value;
+      
+      // Check if this pill has any data (quality="B" is default, so don't count it as "data entered")
+      const hasAnyData = need1 || need2 || (toxicity && toxicity.trim() !== '') || (wuxing && wuxing.trim() !== '');
+      
+      if (hasAnyData) {
+        // If pill has any data, it must be complete
+        const hasNeed = need1 || need2;
+        const hasToxicity = toxicity && toxicity.trim() !== '';
+        const hasWuxing = wuxing && wuxing.trim() !== '';
+        const hasQuality = quality && quality.trim() !== ''; // Quality always has default "B", so this is always true
+        
+        if (hasNeed && hasToxicity && hasWuxing && hasQuality) {
+          hasCompletePill = true;
+        } else {
+          hasIncompletePill = true;
+          incompletePillNumbers.push(i + 1);
+        }
+      }
+    }
+    
+    const btnConfirm = document.getElementById('btnAlchemyInputConfirm');
+    
+    if (hasIncompletePill) {
+      btnConfirm.disabled = true;
+      // Log reason (but only once to avoid spam)
+      if (!validateAlchemyInput.lastLogged || validateAlchemyInput.lastLogged !== incompletePillNumbers.join(',')) {
+        const missingFields = [];
+        incompletePillNumbers.forEach(pillNum => {
+          const i = pillNum - 1;
+          const need1 = document.getElementById(`pill${i}_need1`).value;
+          const need2 = document.getElementById(`pill${i}_need2`).value;
+          const toxicity = document.getElementById(`pill${i}_toxicity`).value;
+          const wuxing = document.getElementById(`pill${i}_wuxing`).value;
+          const quality = document.getElementById(`pill${i}_quality`).value;
+          
+          const missing = [];
+          if (!need1 && !need2) missing.push('need');
+          if (!toxicity || toxicity.trim() === '') missing.push('toxicity');
+          if (!wuxing || wuxing.trim() === '') missing.push('五行');
+          if (!quality || quality.trim() === '') missing.push('quality');
+          
+          if (missing.length > 0) {
+            missingFields.push(`Pill ${pillNum}: missing ${missing.join(', ')}`);
+          }
+        });
+        log(`Data incomplete: ${missingFields.join('; ')}. All pills with data must be complete.`);
+        validateAlchemyInput.lastLogged = incompletePillNumbers.join(',');
+      }
+    } else if (!hasCompletePill) {
+      btnConfirm.disabled = true;
+    } else {
+      btnConfirm.disabled = false;
+      validateAlchemyInput.lastLogged = null; // Reset when valid
+    }
+  }
+  
+  // Add event listeners to all inputs for validation
+  for (let i = 0; i < 3; i++) {
+    const need1Select = document.getElementById(`pill${i}_need1`);
+    const need2Select = document.getElementById(`pill${i}_need2`);
+    const toxicityInput = document.getElementById(`pill${i}_toxicity`);
+    const wuxingSelect = document.getElementById(`pill${i}_wuxing`);
+    const qualitySelect = document.getElementById(`pill${i}_quality`);
+    
+    need1Select.addEventListener('change', validateAlchemyInput);
+    need2Select.addEventListener('change', validateAlchemyInput);
+    toxicityInput.addEventListener('input', validateAlchemyInput);
+    wuxingSelect.addEventListener('change', validateAlchemyInput);
+    qualitySelect.addEventListener('change', validateAlchemyInput);
+  }
+  
+  // Initial validation (should disable button initially)
+  validateAlchemyInput();
+  
+  // Set up Confirm button (initially disabled)
+  const btnConfirm = document.getElementById('btnAlchemyInputConfirm');
+  btnConfirm.disabled = true;
+  
+  btnConfirm.onclick = () => {
+    // Collect and validate data from all pills
+    const collectedPills = [];
+    const incompletePills = [];
+    
+    for (let i = 0; i < 3; i++) {
+      const need1 = document.getElementById(`pill${i}_need1`).value;
+      const need2 = document.getElementById(`pill${i}_need2`).value;
+      const toxicity = document.getElementById(`pill${i}_toxicity`).value;
+      const wuxing = document.getElementById(`pill${i}_wuxing`).value;
+      const quality = document.getElementById(`pill${i}_quality`).value;
+      
+      // Check if this pill has any data (quality="B" is default, so don't count it as "data entered")
+      const hasAnyData = need1 || need2 || (toxicity && toxicity.trim() !== '') || (wuxing && wuxing.trim() !== '');
+      
+      if (hasAnyData) {
+        // Check if complete
+        const hasNeed = need1 || need2;
+        const hasToxicity = toxicity && toxicity.trim() !== '';
+        const hasWuxing = wuxing && wuxing.trim() !== '';
+        const hasQuality = quality && quality.trim() !== ''; // Quality always has default "B", so this is always true
+        
+        if (hasNeed && hasToxicity && hasWuxing && hasQuality) {
+          // Complete pill
+          const pill = {
+            needs: [],
+            toxicity: parseFloat(toxicity),
+            wuxing: wuxing,
+            quality: quality
+          };
+          
+          if (need1) pill.needs.push(need1);
+          if (need2) pill.needs.push(need2);
+          
+          collectedPills.push(pill);
+        } else {
+          // Incomplete pill
+          incompletePills.push(i + 1);
+        }
+      }
+    }
+    
+    // Check if we have at least one complete pill
+    if (collectedPills.length === 0) {
+      log('Data incomplete: No complete pills. Each pill must have at least one need, toxicity, and 五行.');
+      return;
+    }
+    
+    // Log incomplete pills if any
+    if (incompletePills.length > 0) {
+      log(`Data incomplete: Pill(s) ${incompletePills.join(', ')} are missing required fields. Each pill must have at least one need, toxicity, and 五行.`);
+    }
+    
+    // Store alchemy result (only complete pills)
+    alchemyResult.pills = collectedPills;
+    
+    // Log collected data
+    log(`Alchemy input confirmed. Collected ${collectedPills.length} pill(s):`);
+    collectedPills.forEach((pill, index) => {
+      const needsStr = pill.needs.join(', ');
+      log(`  Pill ${index + 1}: Needs=[${needsStr}], Toxicity=${pill.toxicity}, 五行=${pill.wuxing}, Quality=${pill.quality}`);
+    });
+    
+    // Close UI
+    popupOverlay.style.display = 'none';
+    alchemyUI.style.display = 'none';
+    
+    // Continue with flow - show "Calculating results"
+    log('Calculating results...');
+    
+    // Compute toxicity from pills using 五行相剋 rules
+    const customerWeakness = Utils.wuxingWeakness[customer.constitution];
+    let totalToxicityDelta = 0;
+    
+    log(`Customer constitution: ${customer.constitution}, weakness element: ${customerWeakness}`);
+    
+    collectedPills.forEach((pill, index) => {
+      let pillToxicity = pill.toxicity;
+      let multiplier = 1.0;
+      
+      // Check if pill's 五行 matches customer's weakness element
+      if (pill.wuxing === customerWeakness) {
+        multiplier = Utils.WEAKNESS_MULTIPLIER;
+        pillToxicity = pill.toxicity * multiplier;
+        log(`  Pill ${index + 1}: Base toxicity=${pill.toxicity}, 五行=${pill.wuxing} (weakness match), multiplier=${multiplier}, final=${pillToxicity.toFixed(2)}`);
+      } else {
+        log(`  Pill ${index + 1}: Base toxicity=${pill.toxicity}, 五行=${pill.wuxing} (no match), multiplier=${multiplier}, final=${pillToxicity.toFixed(2)}`);
+      }
+      
+      totalToxicityDelta += pillToxicity;
+    });
+    
+    log(`Total toxicity delta: ${totalToxicityDelta.toFixed(2)}`);
+    
+    // Apply toxicity to customer
+    const previousToxicity = customer.currentToxicity;
+    customer.increaseToxicity(totalToxicityDelta);
+    
+    let died = false;
+    if (!customer.alive) {
+      log(
+        `Toxicity increased from ${previousToxicity.toFixed(2)} to ${customer.currentToxicity.toFixed(2)} (> ${customer.maxToxicity}). ` +
+        `Customer died from toxicity.`
+      );
+      UI.showDeathPopup(ui, customer);
+      deathPopupVisible = true;
+      typePopupVisible = false;
+      died = true;
+    } else {
+      // Calculate satisfaction based on needs fulfillment
+      const customerBenefit = Utils.wuxingBenefit[customer.constitution];
+      const truthNeeds = customer.needs; // Use TRUTH/INTERNAL STATE, not diagnosed
+      
+      // Calculate maximum possible score
+      let maxScore = 0;
+      truthNeeds.forEach(need => {
+        maxScore += need.isMain ? 2 : 1;
+      });
+      
+      // Calculate achieved score
+      let achievedScore = 0;
+      const metNeeds = new Set(); // Track which needs were met
+      const needsWithBonus = new Set(); // Track which needs got bonus
+      
+      truthNeeds.forEach(need => {
+        // Check if this need appears in any pill
+        let needMet = false;
+        let hasBonus = false;
+        
+        collectedPills.forEach(pill => {
+          if (pill.needs.includes(need.code)) {
+            needMet = true;
+            // Check if this pill has beneficial 五行
+            if (pill.wuxing === customerBenefit) {
+              hasBonus = true;
+            }
+          }
+        });
+        
+        if (needMet) {
+          metNeeds.add(need.code);
+          if (hasBonus) {
+            needsWithBonus.add(need.code);
+          }
+        }
+      });
+      
+      // Calculate score with bonuses
+      truthNeeds.forEach(need => {
+        if (metNeeds.has(need.code)) {
+          let needScore = need.isMain ? 2 : 1;
+          if (needsWithBonus.has(need.code)) {
+            needScore *= Utils.BENEFIT_MULTIPLIER;
+          }
+          achievedScore += needScore;
+        }
+      });
+      
+      // Calculate fulfillment ratio
+      const fulfillmentRatio = maxScore > 0 ? achievedScore / maxScore : 0;
+      
+      // Determine satisfaction level
+      let satisfaction;
+      if (fulfillmentRatio >= 0.8) {
+        satisfaction = 'High';
+      } else if (fulfillmentRatio < 0.4) {
+        satisfaction = 'Low';
+      } else {
+        satisfaction = 'Medium';
+      }
+      
+      customer.previousSatisfaction = satisfaction;
+      
+      // Log satisfaction calculation
+      log(`Satisfaction calculation:`);
+      log(`  Customer needs (truth): ${truthNeeds.map(n => n.code + (n.isMain ? '(main)' : '')).join(', ')}`);
+      log(`  Customer beneficial element: ${customerBenefit}`);
+      log(`  Met needs: ${Array.from(metNeeds).join(', ') || 'none'}`);
+      log(`  Needs with bonus: ${Array.from(needsWithBonus).join(', ') || 'none'}`);
+      log(`  Score: ${achievedScore.toFixed(2)}/${maxScore} (ratio: ${(fulfillmentRatio * 100).toFixed(1)}%)`);
+      log(`  Satisfaction: ${satisfaction}`);
+      
+      log(
+        `Toxicity increased from ${previousToxicity.toFixed(2)} to ${customer.currentToxicity.toFixed(2)}/${customer.maxToxicity}. ` +
+        `Previous dose satisfaction: ${satisfaction}.`
+      );
+      
+      // Show post-alchemy feedback screen
+      // Note: Don't call updateStatusAndUI() here as it might interfere with popup
+      // It will be called when the user clicks "繼續" button
+      currentDiagnosis = null;
+      showPostAlchemyScreen();
+    }
+    
+    // If customer died, updateStatusAndUI was already called in death popup handler
+    // If customer alive, updateStatusAndUI will be called when post-alchemy screen closes
+  };
+}
+
+// Init - Load CSV data first
+async function initializeApp() {
+  log('Loading game data...');
+  
+  // Ensure diagnosis overlay is hidden on init
+  const diagnosisOverlay = document.getElementById('diagnosisOverlay');
+  if (diagnosisOverlay) {
+    diagnosisOverlay.classList.remove('active');
+  }
+  
+  // Load needs and clues data
+  needsData = await Utils.loadNeedsData();
+  cluesData = await Utils.loadCluesData();
+  
+  if (needsData.length === 0) {
+    log('ERROR: Failed to load needs data from needs.csv');
+    return;
+  }
+  
+  log(`Loaded ${needsData.length} needs and ${cluesData.length} clues.`);
+  log('Simulation initialized. State=NoActiveVisit, toxicity=0, constitution=None.');
+  updateStatusAndUI();
+}
+
+// Start the app
+initializeApp();

@@ -1,0 +1,1003 @@
+body {
+  background: #fff;
+  font-family: sans-serif;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+#status {
+  margin-bottom: 8px;
+  font-family: monospace;
+}
+
+.admin-row {
+  margin-bottom: 8px;
+}
+
+#btnReset {
+  background: #fee;
+  border: 1px solid #c00;
+  color: #900;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.main-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Game screen & layers */
+#gameScreen {
+  width: 800px;
+  height: 600px;
+  background: black;
+  position: relative;             /* base stacking context */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+#customerSprite {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  height: 380px;
+  display: none;
+  z-index: 1 !important;           /* MUST be below diagnosis elements */
+}
+
+#spriteBody {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 240px;
+  border-radius: 36px;
+  background-color: #444;
+}
+
+#spriteHandLeft,
+#spriteHandRight {
+  position: absolute;
+  bottom: 90px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #F2D1B0;      /* overwritten by JS */
+  clip-path: ellipse(60% 50% at 40% 50%);
+}
+
+#spriteHandLeft {
+  left: 10px;
+  clip-path: ellipse(60% 50% at 40% 50%);
+}
+
+#spriteHandRight {
+  right: 10px;
+  clip-path: ellipse(60% 50% at 60% 50%);
+}
+
+#spriteHead {
+  position: absolute;
+  bottom: 240px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background-color: #F2D1B0;      /* overwritten by JS */
+}
+
+/* Mouth anchor inside the head */
+#spriteMouth {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;                 /* adjust if needed */
+  transform: translateX(-50%);
+  /* no width, no height, no background here */
+}
+
+
+/* Neutral: straight line */
+.mouth-neutral {
+  width: 24px;
+  height: 0;
+  border-bottom: 2px solid currentColor;
+  background: transparent;
+}
+
+
+/* High satisfaction: smile (arc up) */
+.mouth-smile {
+  width: 24px;
+  height: 12px;
+  border-bottom: 2px solid currentColor;
+  border-top: none;
+  border-radius: 0 0 24px 24px;
+  background: transparent;
+}
+
+/* Low satisfaction: frown (arc down) */
+.mouth-frown {
+  width: 24px;
+  height: 12px;
+  border-top: 2px solid currentColor;
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  background: transparent;
+}
+
+/* Gameplay UI layer: full overlay above sprite */
+#uiLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;             /* still above #customerSprite (z=1) */
+  pointer-events: none;   /* children re-enable */
+}
+
+/* Center button column, slightly lower so it doesn't cover the face */
+#uiCenterButtons {
+  position: absolute;
+  left: 50%;
+  top: 60%;                        /* tweak: 55–65% as needed */
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;            /* buttons remain clickable */
+}
+
+.gameButton {
+  min-width: 180px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.8);   /* was opaque */
+  border: 1px solid #ccc;
+}
+
+/* Popup overlay on top of everything in gameScreen */
+#popupOverlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 30000 !important;     /* Above diagnosis overlay (100) */
+}
+
+#typePopup {
+  background: #222;
+  padding: 16px;
+  border: 1px solid #666;
+  color: #eee;
+  min-width: 300px;
+  display: none;
+}
+
+#deathPopup {
+  background: #220000;
+  padding: 16px;
+  border: 1px solid #aa0000;
+  color: #ffdddd;
+  min-width: 300px;
+  display: none;
+}
+
+#typePopupText,
+#deathPopupText,
+#pulsePopupText {
+  margin-bottom: 12px;
+  white-space: pre-line;
+}
+
+#pulsePopup {
+  background: #222;
+  padding: 16px;
+  border: 1px solid #666;
+  color: #eee;
+  min-width: 300px;
+  display: none;
+}
+
+#diagnosisResultPopup {
+  background: #222;
+  padding: 20px;
+  border: 2px solid #888;
+  color: #eee;
+  min-width: 400px;
+  display: none;
+}
+
+#diagnosisResultPopup h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #fff;
+  font-size: 18px;
+}
+
+#diagnosisResultText {
+  margin-bottom: 16px;
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
+#btnDiagnosisResultExport {
+  padding: 8px 16px;
+  background: #444;
+  color: #fff;
+  border: 1px solid #666;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#btnDiagnosisResultExport:hover {
+  background: #555;
+}
+
+/* Diagnosis Selection UI */
+#diagnosisSelectionUI {
+  background: #222;
+  padding: 24px;
+  border: 2px solid #888;
+  color: #eee;
+  min-width: 500px;
+  max-width: 600px;
+  display: none;
+  z-index: 30001 !important;
+}
+
+#diagnosisSelectionUI h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #fff;
+  font-size: 20px;
+  text-align: center;
+}
+
+#needsSelectionArea {
+  margin-bottom: 20px;
+}
+
+.needSelectionItem {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+
+.needSelectionItem label {
+  flex: 1;
+  font-size: 14px;
+  color: #ddd;
+}
+
+.needSelectionItem input[type="radio"] {
+  margin-right: 5px;
+}
+
+.needSelectionItem input[type="checkbox"] {
+  margin-right: 5px;
+}
+
+#toxicityDisplayArea {
+  padding: 12px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 16px;
+  color: #ddd;
+}
+
+#btnDiagnosisSelectionCancel,
+#btnDiagnosisSelectionConfirm {
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border: 1px solid #666;
+  border-radius: 4px;
+}
+
+#btnDiagnosisSelectionCancel {
+  background: #444;
+  color: #fff;
+}
+
+#btnDiagnosisSelectionCancel:hover {
+  background: #555;
+}
+
+#btnDiagnosisSelectionConfirm {
+  background: #4a6a8a;
+  color: #fff;
+  font-weight: bold;
+}
+
+#btnDiagnosisSelectionConfirm:hover {
+  background: #5a7a9a;
+}
+
+#btnDiagnosisSelectionConfirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Alchemy Input UI */
+#alchemyInputUI {
+  background: #222;
+  padding: 24px;
+  border: 2px solid #888;
+  color: #eee;
+  min-width: 600px;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: none;
+  z-index: 30001 !important;
+}
+
+#alchemyInputUI h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #fff;
+  font-size: 20px;
+  text-align: center;
+}
+
+.pillInputGroup {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.pillInputGroup h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #fff;
+  font-size: 16px;
+}
+
+.pillInputRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pillInputRow label {
+  min-width: 80px;
+  font-size: 14px;
+  color: #ddd;
+}
+
+.pillInputRow select,
+.pillInputRow input[type="number"] {
+  flex: 1;
+  padding: 6px;
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.pillInputRow input[type="number"] {
+  width: 100px;
+  flex: 0 0 100px;
+}
+
+#btnAlchemyInputConfirm {
+  padding: 10px 30px;
+  font-size: 16px;
+  cursor: pointer;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #4a6a8a;
+  color: #fff;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+#btnAlchemyInputConfirm:hover:not(:disabled) {
+  background: #5a7a9a;
+}
+
+#btnAlchemyInputConfirm:disabled {
+  background: #2a2a2a;
+  color: #888;
+  border-color: #444;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Handoff Screen */
+#handoffScreen {
+  background: #222;
+  padding: 30px;
+  border: 2px solid #888;
+  color: #eee;
+  min-width: 500px;
+  max-width: 700px;
+  display: none;
+  z-index: 30001 !important;
+}
+
+#handoffScreen h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #fff;
+  font-size: 22px;
+  text-align: center;
+}
+
+#handoffContent {
+  text-align: center;
+  line-height: 1.8;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+#handoffContent p {
+  margin: 10px 0;
+}
+
+#handoffContent ul {
+  display: inline-block;
+  text-align: left;
+  margin: 20px auto;
+  padding-left: 20px;
+}
+
+#handoffContent li {
+  margin: 8px 0;
+}
+
+#btnHandoffProceed {
+  padding: 12px 30px;
+  font-size: 16px;
+  cursor: pointer;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #4a6a8a;
+  color: #fff;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+#btnHandoffProceed:hover {
+  background: #5a7a9a;
+}
+
+/* Post-Alchemy Feedback Screen */
+#postAlchemyScreen {
+  background: #222;
+  padding: 30px;
+  border: 2px solid #888;
+  color: #eee;
+  min-width: 500px;
+  max-width: 700px;
+  display: none;
+  z-index: 30001 !important;
+}
+
+#postAlchemyScreen h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #fff;
+  font-size: 22px;
+  text-align: center;
+}
+
+#postAlchemyContent {
+  text-align: center;
+  line-height: 1.8;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+#postAlchemyContent p {
+  margin: 15px 0;
+}
+
+#btnPostAlchemyContinue {
+  padding: 12px 30px;
+  font-size: 16px;
+  cursor: pointer;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #4a6a8a;
+  color: #fff;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+#btnPostAlchemyContinue:hover {
+  background: #5a7a9a;
+}
+
+/* Log on the right */
+#log {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 8px;
+  height: 600px;
+  overflow-y: auto;
+  font-family: monospace;
+  margin: 0;
+  box-sizing: border-box;
+  width: 600px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* ===== Diagnosis Overlay ===== */
+#diagnosisOverlay {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: none !important;
+  z-index: 9999 !important;
+  pointer-events: none !important;
+}
+
+#diagnosisOverlay.active {
+  display: block !important;
+  pointer-events: auto !important;
+}
+
+/* Action buttons (問/切) - big square buttons above customer */
+#actionButtons {
+  position: absolute !important;
+  left: 50% !important;
+  top: 40px !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  gap: 40px !important;
+  z-index: 10000 !important;
+  pointer-events: auto !important;
+}
+
+.actionButton {
+  width: 100px !important;
+  height: 100px !important;
+  font-size: 42px !important;
+  font-weight: bold;
+  background: #2a4858;
+  color: #fff;
+  border: 3px solid #1a2838;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+  line-height: 1;
+}
+
+.actionButton:hover {
+  background: #3a5868;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+}
+
+.actionButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.actionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Confidence bars on the right */
+#confidenceBars {
+  position: absolute !important;
+  right: 10px !important;
+  top: 10px !important;
+  width: 160px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  z-index: 10000 !important;
+  pointer-events: auto !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  padding: 8px !important;
+  border-radius: 6px !important;
+}
+
+/* 拍板 button below confidence bars */
+.commitButton {
+  position: absolute !important;
+  right: 10px !important;
+  top: 280px !important;
+  width: 160px !important;
+  padding: 12px !important;
+  font-size: 18px !important;
+  font-weight: bold !important;
+  background: #4a6a8a !important;
+  color: #fff !important;
+  border: 2px solid #2a4858 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  z-index: 10001 !important;
+  transition: all 0.2s !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important;
+}
+
+.commitButton:hover {
+  background: #5a7a9a !important;
+  transform: translateY(-2px) !important;
+}
+
+.commitButton:active {
+  transform: translateY(0) !important;
+}
+
+.confidenceBar {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 4px;
+  position: relative;
+  height: 36px;
+}
+
+.confidenceBarLabel {
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  font-size: 10px;
+  color: #ddd;
+  z-index: 2;
+  pointer-events: none;
+  font-weight: bold;
+}
+
+.confidenceBarFill {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  bottom: 4px;
+  background: linear-gradient(90deg, #3a6a8a, #5a8aaa);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  z-index: 1;
+}
+
+.confidenceBarFill.complete {
+  background: linear-gradient(90deg, #2a8a4a, #4aaa6a);
+}
+
+.confidenceBarPercent {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  z-index: 2;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+
+/* Clues container - for scattered clues */
+#cluesContainer {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 10001 !important;
+  pointer-events: none !important;
+}
+
+.clueButton {
+  position: absolute;
+  color: #f0e0c0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.5s, transform 0.3s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  max-width: 200px;
+  white-space: normal;
+  line-height: 1.3;
+  pointer-events: auto;
+}
+
+/* 望 (Observation) clues - warmer brownish tone */
+.clueButton.method-wang {
+  background: rgba(90, 65, 45, 0.9);
+  border: 2px solid #7a5f4f;
+}
+
+/* 聞 (Scent) clues - slightly greenish-brown tone */
+.clueButton.method-wen {
+  background: rgba(70, 75, 55, 0.9);
+  border: 2px solid #6a705a;
+}
+
+.cluePlaceholder {
+  position: absolute;
+  background: rgba(80, 60, 40, 0.15);
+  border: 2px dashed rgba(106, 90, 74, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  max-width: 200px;
+  min-height: 40px;
+  pointer-events: none;
+  z-index: 10001;
+}
+
+.cluePlaceholder.method-wang {
+  background: rgba(90, 65, 45, 0.15);
+  border-color: rgba(122, 95, 79, 0.3);
+}
+
+.cluePlaceholder.method-wen {
+  background: rgba(70, 75, 55, 0.15);
+  border-color: rgba(106, 112, 90, 0.3);
+}
+
+.clueButton.method-wang:hover:not(.fade-out) {
+  background: rgba(110, 85, 65, 0.95);
+  transform: scale(1.05) !important;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+}
+
+.clueButton.method-wen:hover:not(.fade-out) {
+  background: rgba(85, 90, 70, 0.95);
+  transform: scale(1.05) !important;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+}
+
+.clueButton.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.clueButton.fade-out {
+  animation: fadeOut 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.8); }
+}
+
+/* Question menu modal */
+#questionMenu {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 20000 !important;
+  pointer-events: auto !important;
+}
+
+#questionMenu.active {
+  display: flex !important;
+}
+
+#questionMenuContent {
+  background: #2a2a2a;
+  border: 2px solid #555;
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 400px;
+  max-width: 500px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+#questionMenuContent h3 {
+  margin-top: 0;
+  color: #fff;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+#questionList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.questionOption {
+  background: #3a3a3a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.questionOption:hover {
+  background: #4a4a4a;
+  border-color: #777;
+}
+
+.questionOption.empty {
+  color: #888;
+  font-style: italic;
+  cursor: default;
+}
+
+.questionOption.empty:hover {
+  background: #3a3a3a;
+  border-color: #555;
+}
+
+#btnCloseMenu {
+  background: #555;
+  color: #fff;
+  border: 1px solid #777;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#btnCloseMenu:hover {
+  background: #666;
+}
+
+/* Speech balloon (for 問 responses during diagnosis) */
+#speechBalloon {
+  position: absolute !important;
+  left: 80px !important;
+  bottom: 280px !important;
+  width: 220px !important;
+  min-height: 100px !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 3px solid #333 !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+  display: none !important;
+  z-index: 21000 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Speech balloon tail pointing right toward customer */
+#speechBalloon::after {
+  content: '' !important;
+  position: absolute !important;
+  right: -20px !important;
+  bottom: 20px !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-style: solid !important;
+  border-width: 12px 0 12px 20px !important;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.85) !important;
+  filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3)) !important;
+}
+
+#speechBalloon.active {
+  display: block !important;
+  animation: fadeIn 0.3s ease-in;
+}
+
+#speechBalloon.fade-out {
+  animation: fadeOut 0.3s ease-out forwards;
+}
+
+/* Greeting balloon (for customer greetings before diagnosis) - 1/3 bigger */
+#greetingBalloon {
+  position: absolute !important;
+  left: 30px !important;
+  bottom: 280px !important;
+  width: 260px !important;
+  min-height: 100px !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 3px solid #333 !important;
+  border-radius: 12px !important;
+  padding: 18px 20px !important;
+  font-size: 20px !important;
+  line-height: 1.5 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+  display: none !important;
+  z-index: 25000 !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#greetingBalloon.active {
+  display: flex !important;
+}
+
+/* Greeting balloon tail pointing right toward customer */
+#greetingBalloon::after {
+  content: '' !important;
+  position: absolute !important;
+  right: -20px !important;
+  bottom: 20px !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-style: solid !important;
+  border-width: 12px 0 12px 20px !important;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.85) !important;
+  filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3)) !important;
+}
+
+#greetingBalloon.active {
+  display: block !important;
+  animation: fadeIn 0.3s ease-in;
+}
+
+#greetingBalloon.fade-out {
+  animation: fadeOut 0.3s ease-out forwards;
+}
+
+/* Confirm diagnosis button */
+#diagnosisConfirmContainer {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  display: none !important;
+  z-index: 150;
+  pointer-events: auto;
+}
+
+#diagnosisConfirmContainer.active {
+  display: block !important;
+}
+
+#diagnosisConfirmContainer.active {
+  display: block;
+}
+
+#btnConfirmDiagnosis {
+  min-width: 200px;
+  padding: 4px 8px;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
