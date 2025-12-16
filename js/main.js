@@ -808,12 +808,15 @@ function showAlchemyInputUI(customer, needsData) {
       // Calculate achieved score
       let achievedScore = 0;
       const metNeeds = new Set(); // Track which needs were met
-      const needsWithBonus = new Set(); // Track which needs got bonus
+      const needsWithBonus = new Set(); // Track which needs got 五行 bonus
+      const needBestQuality = {}; // Track best quality grade for each need
       
       truthNeeds.forEach(need => {
         // Check if this need appears in any pill
         let needMet = false;
         let hasBonus = false;
+        let bestQuality = null;
+        let bestQualityRank = -1;
         
         collectedPills.forEach(pill => {
           if (pill.needs.includes(need.code)) {
@@ -821,6 +824,12 @@ function showAlchemyInputUI(customer, needsData) {
             // Check if this pill has beneficial 五行
             if (pill.wuxing === customerBenefit) {
               hasBonus = true;
+            }
+            // Find best quality grade for this need
+            const qualityRank = Utils.QUALITY_ORDER.indexOf(pill.quality);
+            if (qualityRank > bestQualityRank) {
+              bestQualityRank = qualityRank;
+              bestQuality = pill.quality;
             }
           }
         });
@@ -830,16 +839,27 @@ function showAlchemyInputUI(customer, needsData) {
           if (hasBonus) {
             needsWithBonus.add(need.code);
           }
+          if (bestQuality) {
+            needBestQuality[need.code] = bestQuality;
+          }
         }
       });
       
-      // Calculate score with bonuses
+      // Calculate score with bonuses and quality multipliers
       truthNeeds.forEach(need => {
         if (metNeeds.has(need.code)) {
           let needScore = need.isMain ? 2 : 1;
+          
+          // Apply 五行 benefit multiplier if applicable
           if (needsWithBonus.has(need.code)) {
             needScore *= Utils.BENEFIT_MULTIPLIER;
           }
+          
+          // Apply quality multiplier
+          const quality = needBestQuality[need.code] || 'B';
+          const qualityMultiplier = Utils.QUALITY_MULTIPLIERS[quality] || 1.0;
+          needScore *= qualityMultiplier;
+          
           achievedScore += needScore;
         }
       });
@@ -857,6 +877,16 @@ function showAlchemyInputUI(customer, needsData) {
         satisfaction = 'Medium';
       }
       
+      // Apply category cap: if main need's best quality is C, cap at Medium
+      const mainNeed = truthNeeds.find(n => n.isMain);
+      if (mainNeed && metNeeds.has(mainNeed.code)) {
+        const mainNeedBestQuality = needBestQuality[mainNeed.code] || 'B';
+        if (mainNeedBestQuality === 'C' && satisfaction === 'High') {
+          satisfaction = 'Medium';
+          log(`  Category cap applied: Main need quality is C, downgrading High to Medium`);
+        }
+      }
+      
       customer.previousSatisfaction = satisfaction;
       
       // Log satisfaction calculation
@@ -864,7 +894,19 @@ function showAlchemyInputUI(customer, needsData) {
       log(`  Customer needs (truth): ${truthNeeds.map(n => n.code + (n.isMain ? '(main)' : '')).join(', ')}`);
       log(`  Customer beneficial element: ${customerBenefit}`);
       log(`  Met needs: ${Array.from(metNeeds).join(', ') || 'none'}`);
-      log(`  Needs with bonus: ${Array.from(needsWithBonus).join(', ') || 'none'}`);
+      log(`  Needs with 五行 bonus: ${Array.from(needsWithBonus).join(', ') || 'none'}`);
+      truthNeeds.forEach(need => {
+        if (metNeeds.has(need.code)) {
+          const quality = needBestQuality[need.code] || 'B';
+          const qualityMultiplier = Utils.QUALITY_MULTIPLIERS[quality] || 1.0;
+          const hasBonus = needsWithBonus.has(need.code);
+          const baseScore = need.isMain ? 2 : 1;
+          let finalScore = baseScore;
+          if (hasBonus) finalScore *= Utils.BENEFIT_MULTIPLIER;
+          finalScore *= qualityMultiplier;
+          log(`    ${need.code}${need.isMain ? '(main)' : ''}: base=${baseScore}, 五行=${hasBonus ? Utils.BENEFIT_MULTIPLIER + 'x' : '1.0x'}, quality=${quality}(${qualityMultiplier}x), final=${finalScore.toFixed(2)}`);
+        }
+      });
       log(`  Score: ${achievedScore.toFixed(2)}/${maxScore} (ratio: ${(fulfillmentRatio * 100).toFixed(1)}%)`);
       log(`  Satisfaction: ${satisfaction}`);
       

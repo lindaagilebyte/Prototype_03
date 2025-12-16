@@ -33,6 +33,18 @@ export const wuxingBenefit = {
 // Benefit multiplier constant (for need satisfaction)
 export const BENEFIT_MULTIPLIER = 1.2;
 
+// Quality ordering (best to worst)
+export const QUALITY_ORDER = ['U', 'S', 'A', 'B', 'C'];
+
+// Quality-to-multiplier mapping (B is neutral baseline)
+export const QUALITY_MULTIPLIERS = {
+  'U': 1.20,
+  'S': 1.10,
+  'A': 1.05,
+  'B': 1.00,
+  'C': 0.80
+};
+
 // CSV parsing utility
 export function parseCSV(text) {
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
