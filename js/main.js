@@ -966,6 +966,12 @@ function showAlchemyInputUI(customer, needsData, recipesData) {
 async function initializeApp() {
   log('Loading game data...');
   
+  // Set version label
+  const versionLabel = document.getElementById('versionLabel');
+  if (versionLabel) {
+    versionLabel.textContent = Utils.VERSION;
+  }
+  
   // Ensure diagnosis overlay is hidden on init
   const diagnosisOverlay = document.getElementById('diagnosisOverlay');
   if (diagnosisOverlay) {

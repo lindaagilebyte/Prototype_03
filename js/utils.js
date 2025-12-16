@@ -1,3 +1,10 @@
+// Version string (increment on each change)
+// Timestamp is automatically generated, increment version number manually
+const now = new Date();
+const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+const timeStr = now.toTimeString().split(':').slice(0, 2).join(':'); // HH:MM
+export const VERSION = `${dateStr}-${timeStr}-v0.1`;
+
 // Enums and pools
 export const VisitState = Object.freeze({
   NoActiveVisit: 'NoActiveVisit',

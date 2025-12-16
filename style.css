@@ -43,6 +43,17 @@ h1 {
   margin-bottom: 8px;
 }
 
+#versionLabel {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  color: #888;
+  font-size: 12px;
+  font-family: monospace;
+  z-index: 1;
+  pointer-events: none;
+}
+
 #customerSprite {
   position: absolute;
   bottom: 40px;
