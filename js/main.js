@@ -17,6 +17,7 @@ let greetingShowing = false;
 // Game data (loaded from CSV)
 let needsData = [];
 let cluesData = [];
+let recipesData = [];
 
 // Current visit clue selection
 let currentClueSelection = null;
@@ -434,7 +435,7 @@ function showHandoffScreen(customer, needsData) {
     handoffScreen.style.display = 'none';
     
     // Show alchemy input UI
-    showAlchemyInputUI(customer, needsData);
+    showAlchemyInputUI(customer, needsData, recipesData);
   };
 }
 
@@ -468,7 +469,7 @@ function showPostAlchemyScreen() {
 }
 
 // Show alchemy input UI
-function showAlchemyInputUI(customer, needsData) {
+function showAlchemyInputUI(customer, needsData, recipesData) {
   const popupOverlay = document.getElementById('popupOverlay');
   const alchemyUI = document.getElementById('alchemyInputUI');
   const pillsContainer = document.getElementById('pillsContainer');
@@ -485,32 +486,52 @@ function showAlchemyInputUI(customer, needsData) {
   // Clear previous content
   pillsContainer.innerHTML = '';
   
+  // Check if recipesData is available
+  if (!recipesData || recipesData.length === 0) {
+    log('ERROR: No recipes data available. Make sure recipes_from_datajs.csv exists and was loaded correctly.');
+    console.error('recipesData is empty or undefined:', recipesData);
+  }
+  
+  // SymptomID to NeedCode mapping
+  const symptomToNeed = {
+    '1': 'A',
+    '2': 'B',
+    '3': 'C',
+    '4': 'D',
+    '5': 'E'
+  };
+  
   // Create 3 pill input groups
   for (let i = 0; i < 3; i++) {
     const pillGroup = document.createElement('div');
     pillGroup.className = 'pillInputGroup';
     pillGroup.innerHTML = `<h4>Pill ${i + 1}</h4>`;
     
-    // Need 1 dropdown
-    const need1Row = document.createElement('div');
-    need1Row.className = 'pillInputRow';
-    need1Row.innerHTML = `
-      <label>Need 1:</label>
-      <select id="pill${i}_need1" class="pillNeedSelect">
+    // Recipe dropdown
+    const recipeRow = document.createElement('div');
+    recipeRow.className = 'pillInputRow';
+    recipeRow.innerHTML = `
+      <label>Recipe:</label>
+      <select id="pill${i}_recipe" class="pillRecipeSelect">
         <option value="">-- Select --</option>
-        ${needsData.map(n => `<option value="${n.code}">${n.code}: ${n.label}</option>`).join('')}
+        ${recipesData.map(r => `<option value="${r.name}">${r.name}</option>`).join('')}
       </select>
     `;
     
-    // Need 2 dropdown
-    const need2Row = document.createElement('div');
-    need2Row.className = 'pillInputRow';
-    need2Row.innerHTML = `
-      <label>Need 2:</label>
-      <select id="pill${i}_need2" class="pillNeedSelect">
-        <option value="">-- Select --</option>
-        ${needsData.map(n => `<option value="${n.code}">${n.code}: ${n.label}</option>`).join('')}
-      </select>
+    // Needs display (read-only, auto-filled from recipe)
+    const needsRow = document.createElement('div');
+    needsRow.className = 'pillInputRow';
+    needsRow.innerHTML = `
+      <label>Needs:</label>
+      <div id="pill${i}_needsDisplay" style="flex: 1; padding: 6px; background: #2a2a2a; border: 1px solid #555; border-radius: 3px; color: #aaa; font-size: 14px;">--</div>
+    `;
+    
+    // 五行 display (read-only, auto-filled from recipe)
+    const wuxingRow = document.createElement('div');
+    wuxingRow.className = 'pillInputRow';
+    wuxingRow.innerHTML = `
+      <label>五行:</label>
+      <div id="pill${i}_wuxingDisplay" style="flex: 1; padding: 6px; background: #2a2a2a; border: 1px solid #555; border-radius: 3px; color: #aaa; font-size: 14px;">--</div>
     `;
     
     // Toxicity input
@@ -519,17 +540,6 @@ function showAlchemyInputUI(customer, needsData) {
     toxicityRow.innerHTML = `
       <label>Toxicity:</label>
       <input type="number" id="pill${i}_toxicity" min="0" step="0.01" placeholder="0.00">
-    `;
-    
-    // 五行 dropdown
-    const wuxingRow = document.createElement('div');
-    wuxingRow.className = 'pillInputRow';
-    wuxingRow.innerHTML = `
-      <label>五行:</label>
-      <select id="pill${i}_wuxing" class="pillWuxingSelect">
-        <option value="">-- Select --</option>
-        ${Utils.constitutionTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
-      </select>
     `;
     
     // Quality dropdown
@@ -546,43 +556,58 @@ function showAlchemyInputUI(customer, needsData) {
       </select>
     `;
     
-    pillGroup.appendChild(need1Row);
-    pillGroup.appendChild(need2Row);
-    pillGroup.appendChild(toxicityRow);
+    pillGroup.appendChild(recipeRow);
+    pillGroup.appendChild(needsRow);
     pillGroup.appendChild(wuxingRow);
+    pillGroup.appendChild(toxicityRow);
     pillGroup.appendChild(qualityRow);
     pillsContainer.appendChild(pillGroup);
     
-    // Handle need selection changes - remove selected option from other dropdown
-    const need1Select = document.getElementById(`pill${i}_need1`);
-    const need2Select = document.getElementById(`pill${i}_need2`);
+    // Handle recipe selection
+    const recipeSelect = document.getElementById(`pill${i}_recipe`);
+    const needsDisplay = document.getElementById(`pill${i}_needsDisplay`);
+    const wuxingDisplay = document.getElementById(`pill${i}_wuxingDisplay`);
     
-    need1Select.addEventListener('change', () => {
-      updateNeedDropdowns(need1Select, need2Select, needsData);
-    });
-    
-    need2Select.addEventListener('change', () => {
-      updateNeedDropdowns(need2Select, need1Select, needsData);
-    });
-  }
-  
-  // Function to update need dropdowns (remove selected option from other)
-  function updateNeedDropdowns(selectedSelect, otherSelect, needsData) {
-    const selectedValue = selectedSelect.value;
-    const otherValue = otherSelect.value;
-    
-    // Rebuild other dropdown
-    otherSelect.innerHTML = '<option value="">-- Select --</option>';
-    needsData.forEach(need => {
-      if (need.code !== selectedValue) {
-        const option = document.createElement('option');
-        option.value = need.code;
-        option.textContent = `${need.code}: ${need.label}`;
-        if (need.code === otherValue) {
-          option.selected = true;
+    recipeSelect.addEventListener('change', () => {
+      const selectedRecipe = recipesData.find(r => r.name === recipeSelect.value);
+      
+      if (selectedRecipe) {
+        // Auto-fill needs from Symptom1/Symptom2
+        const needs = [];
+        if (selectedRecipe.symptom1 && symptomToNeed[selectedRecipe.symptom1]) {
+          needs.push(symptomToNeed[selectedRecipe.symptom1]);
         }
-        otherSelect.appendChild(option);
+        if (selectedRecipe.symptom2 && symptomToNeed[selectedRecipe.symptom2]) {
+          needs.push(symptomToNeed[selectedRecipe.symptom2]);
+        }
+        
+        // Update needs display
+        if (needs.length > 0) {
+          needsDisplay.textContent = needs.join(', ');
+          needsDisplay.style.color = '#fff';
+        } else {
+          needsDisplay.textContent = '--';
+          needsDisplay.style.color = '#aaa';
+        }
+        
+        // Auto-fill 五行 from Element
+        if (selectedRecipe.element && Utils.constitutionTypes.includes(selectedRecipe.element)) {
+          wuxingDisplay.textContent = selectedRecipe.element;
+          wuxingDisplay.style.color = '#fff';
+        } else {
+          wuxingDisplay.textContent = '--';
+          wuxingDisplay.style.color = '#aaa';
+        }
+      } else {
+        // Clear displays
+        needsDisplay.textContent = '--';
+        needsDisplay.style.color = '#aaa';
+        wuxingDisplay.textContent = '--';
+        wuxingDisplay.style.color = '#aaa';
       }
+      
+      // Trigger validation
+      validateAlchemyInput();
     });
   }
   
@@ -603,23 +628,29 @@ function showAlchemyInputUI(customer, needsData) {
     const incompletePillNumbers = [];
     
     for (let i = 0; i < 3; i++) {
-      const need1 = document.getElementById(`pill${i}_need1`).value;
-      const need2 = document.getElementById(`pill${i}_need2`).value;
+      const recipe = document.getElementById(`pill${i}_recipe`).value;
+      const needsDisplay = document.getElementById(`pill${i}_needsDisplay`);
+      const wuxingDisplay = document.getElementById(`pill${i}_wuxingDisplay`);
       const toxicity = document.getElementById(`pill${i}_toxicity`).value;
-      const wuxing = document.getElementById(`pill${i}_wuxing`).value;
       const quality = document.getElementById(`pill${i}_quality`).value;
       
+      // Get needs and wuxing from displays (they're auto-filled from recipe)
+      const needsText = needsDisplay.textContent.trim();
+      const needs = needsText !== '--' ? needsText.split(',').map(n => n.trim()).filter(n => n) : [];
+      const wuxing = wuxingDisplay.textContent.trim() !== '--' ? wuxingDisplay.textContent.trim() : '';
+      
       // Check if this pill has any data (quality="B" is default, so don't count it as "data entered")
-      const hasAnyData = need1 || need2 || (toxicity && toxicity.trim() !== '') || (wuxing && wuxing.trim() !== '');
+      const hasAnyData = recipe || (toxicity && toxicity.trim() !== '');
       
       if (hasAnyData) {
         // If pill has any data, it must be complete
-        const hasNeed = need1 || need2;
-        const hasToxicity = toxicity && toxicity.trim() !== '';
+        const hasRecipe = recipe && recipe.trim() !== '';
+        const hasNeeds = needs.length > 0;
         const hasWuxing = wuxing && wuxing.trim() !== '';
+        const hasToxicity = toxicity && toxicity.trim() !== '';
         const hasQuality = quality && quality.trim() !== ''; // Quality always has default "B", so this is always true
         
-        if (hasNeed && hasToxicity && hasWuxing && hasQuality) {
+        if (hasRecipe && hasNeeds && hasWuxing && hasToxicity && hasQuality) {
           hasCompletePill = true;
         } else {
           hasIncompletePill = true;
@@ -637,16 +668,21 @@ function showAlchemyInputUI(customer, needsData) {
         const missingFields = [];
         incompletePillNumbers.forEach(pillNum => {
           const i = pillNum - 1;
-          const need1 = document.getElementById(`pill${i}_need1`).value;
-          const need2 = document.getElementById(`pill${i}_need2`).value;
+          const recipe = document.getElementById(`pill${i}_recipe`).value;
+          const needsDisplay = document.getElementById(`pill${i}_needsDisplay`);
+          const wuxingDisplay = document.getElementById(`pill${i}_wuxingDisplay`);
           const toxicity = document.getElementById(`pill${i}_toxicity`).value;
-          const wuxing = document.getElementById(`pill${i}_wuxing`).value;
           const quality = document.getElementById(`pill${i}_quality`).value;
           
+          const needsText = needsDisplay.textContent.trim();
+          const needs = needsText !== '--' ? needsText.split(',').map(n => n.trim()).filter(n => n) : [];
+          const wuxing = wuxingDisplay.textContent.trim() !== '--' ? wuxingDisplay.textContent.trim() : '';
+          
           const missing = [];
-          if (!need1 && !need2) missing.push('need');
-          if (!toxicity || toxicity.trim() === '') missing.push('toxicity');
+          if (!recipe || recipe.trim() === '') missing.push('recipe');
+          if (needs.length === 0) missing.push('needs');
           if (!wuxing || wuxing.trim() === '') missing.push('五行');
+          if (!toxicity || toxicity.trim() === '') missing.push('toxicity');
           if (!quality || quality.trim() === '') missing.push('quality');
           
           if (missing.length > 0) {
@@ -666,16 +702,12 @@ function showAlchemyInputUI(customer, needsData) {
   
   // Add event listeners to all inputs for validation
   for (let i = 0; i < 3; i++) {
-    const need1Select = document.getElementById(`pill${i}_need1`);
-    const need2Select = document.getElementById(`pill${i}_need2`);
+    const recipeSelect = document.getElementById(`pill${i}_recipe`);
     const toxicityInput = document.getElementById(`pill${i}_toxicity`);
-    const wuxingSelect = document.getElementById(`pill${i}_wuxing`);
     const qualitySelect = document.getElementById(`pill${i}_quality`);
     
-    need1Select.addEventListener('change', validateAlchemyInput);
-    need2Select.addEventListener('change', validateAlchemyInput);
+    // Recipe change is already handled above with auto-fill logic
     toxicityInput.addEventListener('input', validateAlchemyInput);
-    wuxingSelect.addEventListener('change', validateAlchemyInput);
     qualitySelect.addEventListener('change', validateAlchemyInput);
   }
   
@@ -692,33 +724,36 @@ function showAlchemyInputUI(customer, needsData) {
     const incompletePills = [];
     
     for (let i = 0; i < 3; i++) {
-      const need1 = document.getElementById(`pill${i}_need1`).value;
-      const need2 = document.getElementById(`pill${i}_need2`).value;
+      const recipe = document.getElementById(`pill${i}_recipe`).value;
+      const needsDisplay = document.getElementById(`pill${i}_needsDisplay`);
+      const wuxingDisplay = document.getElementById(`pill${i}_wuxingDisplay`);
       const toxicity = document.getElementById(`pill${i}_toxicity`).value;
-      const wuxing = document.getElementById(`pill${i}_wuxing`).value;
       const quality = document.getElementById(`pill${i}_quality`).value;
       
+      // Get needs and wuxing from displays (they're auto-filled from recipe)
+      const needsText = needsDisplay.textContent.trim();
+      const needs = needsText !== '--' ? needsText.split(',').map(n => n.trim()).filter(n => n) : [];
+      const wuxing = wuxingDisplay.textContent.trim() !== '--' ? wuxingDisplay.textContent.trim() : '';
+      
       // Check if this pill has any data (quality="B" is default, so don't count it as "data entered")
-      const hasAnyData = need1 || need2 || (toxicity && toxicity.trim() !== '') || (wuxing && wuxing.trim() !== '');
+      const hasAnyData = recipe || (toxicity && toxicity.trim() !== '');
       
       if (hasAnyData) {
         // Check if complete
-        const hasNeed = need1 || need2;
-        const hasToxicity = toxicity && toxicity.trim() !== '';
+        const hasRecipe = recipe && recipe.trim() !== '';
+        const hasNeeds = needs.length > 0;
         const hasWuxing = wuxing && wuxing.trim() !== '';
-        const hasQuality = quality && quality.trim() !== ''; // Quality always has default "B", so this is always true
+        const hasToxicity = toxicity && toxicity.trim() !== '';
+        const hasQuality = quality && quality.trim() !== '';
         
-        if (hasNeed && hasToxicity && hasWuxing && hasQuality) {
+        if (hasRecipe && hasNeeds && hasWuxing && hasToxicity && hasQuality) {
           // Complete pill
           const pill = {
-            needs: [],
+            needs: needs,
             toxicity: parseFloat(toxicity),
             wuxing: wuxing,
             quality: quality
           };
-          
-          if (need1) pill.needs.push(need1);
-          if (need2) pill.needs.push(need2);
           
           collectedPills.push(pill);
         } else {
@@ -937,16 +972,21 @@ async function initializeApp() {
     diagnosisOverlay.classList.remove('active');
   }
   
-  // Load needs and clues data
+  // Load needs, clues, and recipes data
   needsData = await Utils.loadNeedsData();
   cluesData = await Utils.loadCluesData();
+  recipesData = await Utils.loadRecipesData();
   
   if (needsData.length === 0) {
     log('ERROR: Failed to load needs data from needs.csv');
     return;
   }
   
-  log(`Loaded ${needsData.length} needs and ${cluesData.length} clues.`);
+  log(`Loaded ${needsData.length} needs, ${cluesData.length} clues, and ${recipesData.length} recipes.`);
+  
+  if (recipesData.length === 0) {
+    log('WARNING: No recipes loaded from recipes_from_datajs.csv. Check if file exists and is properly formatted.');
+  }
   log('Simulation initialized. State=NoActiveVisit, toxicity=0, constitution=None.');
   updateStatusAndUI();
 }

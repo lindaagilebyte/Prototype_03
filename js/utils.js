@@ -93,6 +93,38 @@ export async function loadNeedsData() {
   }
 }
 
+// Load recipes from CSV
+export async function loadRecipesData() {
+  try {
+    const response = await fetch('recipes_from_datajs.csv');
+    if (!response.ok) {
+      console.error(`Failed to load recipes_from_datajs.csv: HTTP ${response.status}`);
+      return [];
+    }
+    const text = await response.text();
+    if (!text || text.trim().length === 0) {
+      console.error('recipes_from_datajs.csv is empty');
+      return [];
+    }
+    const rows = parseCSV(text);
+    console.log(`Parsed ${rows.length} rows from recipes CSV`);
+    
+    // Transform to expected format
+    const recipes = rows.map(row => ({
+      name: row.RecipeName || '',
+      element: row.Element || '',
+      symptom1: row.Symptom1 || '',
+      symptom2: row.Symptom2 || ''
+    })).filter(recipe => recipe.name); // Filter out invalid entries
+    
+    console.log(`Loaded ${recipes.length} valid recipes`);
+    return recipes;
+  } catch (error) {
+    console.error('Error loading recipes_from_datajs.csv:', error);
+    return [];
+  }
+}
+
 // Load clues from CSV
 export async function loadCluesData() {
   try {
