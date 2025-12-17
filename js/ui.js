@@ -120,7 +120,7 @@ export function showTypePopup(ui, customer) {
   ui.popupOverlay.style.display = 'flex';
   ui.typePopup.style.display = 'block';
   ui.deathPopup.style.display = 'none';
-  ui.typePopupText.innerHTML = `<b>Constitution Assigned</b><br>Name: ${customer.name}<br>Constitution: ${customer.constitution}`;
+  ui.typePopupText.innerHTML = `<b>體質已確定</b><br>姓名：${customer.name}<br>體質：${customer.constitution}`;
 }
 export function hideTypePopup(ui) {
   ui.typePopup.style.display = 'none';
@@ -129,7 +129,7 @@ export function showDeathPopup(ui, customer) {
   ui.popupOverlay.style.display = 'flex';
   ui.typePopup.style.display = 'none';
   ui.deathPopup.style.display = 'block';
-  ui.deathPopupText.innerHTML = `<b>Customer Deceased</b><br>Customer ${customer.name} has died from toxicity.<br>Toxicity: ${customer.currentToxicity}/${customer.maxToxicity}.`;
+  ui.deathPopupText.innerHTML = `<b>顧客已死亡</b><br>顧客${customer.name}因毒性過高死亡。<br>毒性：${customer.currentToxicity}/${customer.maxToxicity}。`;
 }
 export function hideDeathPopup(ui) {
   ui.deathPopup.style.display = 'none';

@@ -412,7 +412,7 @@ function showPulsePopup(customer) {
   const pulsePopup = document.getElementById('pulsePopup');
   const pulsePopupText = document.getElementById('pulsePopupText');
   
-  pulsePopupText.textContent = `Toxicity: ${customer.currentToxicity}/${customer.maxToxicity}`;
+  pulsePopupText.textContent = `毒性：${customer.currentToxicity}/${customer.maxToxicity}`;
   
   // Disable all clue buttons while popup is showing (like 問 does)
   const clueButtons = document.querySelectorAll('.clueButton');
@@ -552,27 +552,27 @@ function showDiagnosisResultPopup(customer, needsData, onComplete) {
   let displayText = '';
   
   if (diagnosedState.constitution) {
-    displayText += `Constitution: ${diagnosedState.constitution}\n\n`;
+    displayText += `體質： ${diagnosedState.constitution}\n\n`;
   } else {
-    displayText += `Constitution: Not diagnosed\n\n`;
+    displayText += `體質：未明\n\n`;
   }
   
   if (diagnosedState.needs && diagnosedState.needs.length > 0) {
     const needsSummary = diagnosedState.needs
       .map(n => {
         const needData = needsData.find(nd => nd.code === n.code);
-        return `  ${n.code}: ${needData ? needData.label : n.code}`;
+        return `  ${needData ? needData.label : n.code}`;
       })
       .join('\n');
-    displayText += `Needs:\n${needsSummary}\n\n`;
+    displayText += `需求：\n${needsSummary}\n\n`;
   } else {
-    displayText += `Needs: Not diagnosed\n\n`;
+    displayText += `需求：未明\n\n`;
   }
   
   if (diagnosedState.toxicity) {
-    displayText += `Toxicity: ${diagnosedState.toxicity}`;
+    displayText += `毒性：${diagnosedState.toxicity}`;
   } else {
-    displayText += `Toxicity: Not diagnosed`;
+    displayText += `毒性：Not diagnosed`;
   }
   
   resultText.textContent = displayText;
@@ -662,7 +662,7 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
     item.className = 'needSelectionItem';
     
     const label = document.createElement('label');
-    label.textContent = `${need.code}: ${need.label}`;
+    label.textContent = `${need.label}`;
     label.style.flex = '1';
     
     const mainRadio = document.createElement('input');
@@ -720,7 +720,7 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
   // Display toxicity
   if (diagnosedState.toxicity && typeof diagnosedState.toxicity === 'string') {
     // Already converted to term
-    toxicityArea.textContent = `Toxicity: ${diagnosedState.toxicity}`;
+    toxicityArea.textContent = `毒性： ${diagnosedState.toxicity}`;
   } else if (diagnosedState.toxicity) {
     // Still has raw numbers, calculate term
     const ratio = customer.maxToxicity > 0 ? diagnosedState.toxicity.current / diagnosedState.toxicity.max : 0;
@@ -729,9 +729,9 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
     else if (ratio < 0.50) stageTerm = '積毒';
     else if (ratio < 0.75) stageTerm = '深毒';
     else stageTerm = '劇毒';
-    toxicityArea.textContent = `Toxicity: ${stageTerm}`;
+    toxicityArea.textContent = `毒性： ${stageTerm}`;
   } else {
-    toxicityArea.textContent = 'Toxicity: 未明';
+    toxicityArea.textContent = '毒性： 未明';
   }
   
   // Validation function
