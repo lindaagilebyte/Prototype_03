@@ -35,7 +35,7 @@ export function updateStatus(ui, customer, visitState) {
   const constitutionDisplay = customer.constitution === null ? '—' : customer.constitution;
   ui.statusEl.textContent =
     `State: ${visitState} | ` +
-    `Toxicity: ${customer.currentToxicity}/${customer.maxToxicity} | ` +
+    `Toxicity: ${customer.currentToxicity.toFixed(2)}/${customer.maxToxicity} | ` +
     `Constitution: ${constitutionDisplay} | ` +
     `Alive: ${customer.alive}`;
 }

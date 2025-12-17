@@ -412,7 +412,7 @@ function showPulsePopup(customer) {
   const pulsePopup = document.getElementById('pulsePopup');
   const pulsePopupText = document.getElementById('pulsePopupText');
   
-  pulsePopupText.textContent = `毒性：${customer.currentToxicity}/${customer.maxToxicity}`;
+  pulsePopupText.textContent = `毒性：${customer.currentToxicity.toFixed(2)}/${customer.maxToxicity}`;
   
   // Disable all clue buttons while popup is showing (like 問 does)
   const clueButtons = document.querySelectorAll('.clueButton');
