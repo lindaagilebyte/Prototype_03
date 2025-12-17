@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Consultation Prototype</title>
+  <title>問診系統Prototype</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Consultation Prototype</h1>
+  <h1>問診系統Prototype</h1>
 
   <div id="status"></div>
 
   <!-- Admin-only reset button (separate row + color) -->
   <div class="admin-row">
-    <button id="btnReset">GenerateNewCustomer (admin)</button>
+    <button id="btnReset">重新產生顧客（管理用）</button>
   </div>
 
   <!-- Main row: game screen on the left, log on the right -->
@@ -45,10 +45,10 @@
         <div id="uiLayer">
           <!-- Center area: placeholder buttons for now -->
           <div id="uiCenterButtons">
-            <button id="btnSpawn"    class="gameButton">Initialize Customer Visit</button>
-            <button id="btnClick"    class="gameButton">Diagnose Type</button>
-            <button id="btnDiagnose" class="gameButton">Run Diagnosis</button>
-            <button id="btnLeave"    class="gameButton">Customer Leaves</button>
+            <button id="btnSpawn"    class="gameButton">開始顧客來訪</button>
+            <button id="btnClick"    class="gameButton">判定體質</button>
+            <button id="btnDiagnose" class="gameButton">進行問診</button>
+            <button id="btnLeave"    class="gameButton">顧客離開</button>
           </div>
         </div>
 
@@ -81,13 +81,13 @@
             <div id="questionMenuContent">
               <h3>問診</h3>
               <div id="questionList"></div>
-              <button id="btnCloseMenu">Close</button>
+              <button id="btnCloseMenu">關閉/button>
             </div>
           </div>
 
           <!-- Confirm diagnosis button (appears when ready) -->
           <div id="diagnosisConfirmContainer">
-            <button id="btnConfirmDiagnosis" class="gameButton">Confirm Diagnosis</button>
+            <button id="btnConfirmDiagnosis" class="gameButton">確認診斷/button>
           </div>
         </div>
 
@@ -114,17 +114,17 @@
 
           <!-- Diagnosis Result popup -->
           <div id="diagnosisResultPopup">
-            <h3>Diagnosis Result</h3>
+            <h3>診斷結果</h3>
             <div id="diagnosisResultText"></div>
             <div style="display: flex; gap: 10px; justify-content: center;">
-              <button id="btnDiagnosisResultExport">Export</button>
-              <button id="btnDiagnosisResultOk">OK</button>
+              <button id="btnDiagnosisResultExport">匯出</button>
+              <button id="btnDiagnosisResultOk">確認</button>
             </div>
           </div>
 
           <!-- Diagnosis Selection UI (for 拍板) -->
           <div id="diagnosisSelectionUI">
-            <h3>診斷選擇 (Diagnosis Selection)</h3>
+            <h3>診斷選擇</h3>
             <div id="diagnosisSelectionContent">
               <div id="needsSelectionArea"></div>
               <div id="toxicityDisplayArea"></div>
