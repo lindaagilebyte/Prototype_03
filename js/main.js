@@ -505,15 +505,15 @@ function showAlchemyInputUI(customer, needsData, recipesData) {
   for (let i = 0; i < 3; i++) {
     const pillGroup = document.createElement('div');
     pillGroup.className = 'pillInputGroup';
-    pillGroup.innerHTML = `<h4>Pill ${i + 1}</h4>`;
+    pillGroup.innerHTML = `<h4>丹藥 ${i + 1}</h4>`;
     
     // Recipe dropdown
     const recipeRow = document.createElement('div');
     recipeRow.className = 'pillInputRow';
     recipeRow.innerHTML = `
-      <label>Recipe:</label>
+      <label>丹方：</label>
       <select id="pill${i}_recipe" class="pillRecipeSelect">
-        <option value="">-- Select --</option>
+        <option value="">-- 請選擇 --</option>
         ${recipesData.map(r => `<option value="${r.name}">${r.name}</option>`).join('')}
       </select>
     `;
@@ -522,7 +522,7 @@ function showAlchemyInputUI(customer, needsData, recipesData) {
     const needsRow = document.createElement('div');
     needsRow.className = 'pillInputRow';
     needsRow.innerHTML = `
-      <label>Needs:</label>
+      <label>需求：</label>
       <div id="pill${i}_needsDisplay" style="flex: 1; padding: 6px; background: #2a2a2a; border: 1px solid #555; border-radius: 3px; color: #aaa; font-size: 14px;">--</div>
     `;
     
@@ -538,7 +538,7 @@ function showAlchemyInputUI(customer, needsData, recipesData) {
     const toxicityRow = document.createElement('div');
     toxicityRow.className = 'pillInputRow';
     toxicityRow.innerHTML = `
-      <label>Toxicity:</label>
+      <label>毒性：</label>
       <input type="number" id="pill${i}_toxicity" min="0" step="0.01" placeholder="0.00">
     `;
     
@@ -546,7 +546,7 @@ function showAlchemyInputUI(customer, needsData, recipesData) {
     const qualityRow = document.createElement('div');
     qualityRow.className = 'pillInputRow';
     qualityRow.innerHTML = `
-      <label>Quality:</label>
+      <label>品質：</label>
       <select id="pill${i}_quality" class="pillQualitySelect">
         <option value="U">U</option>
         <option value="S">S</option>
