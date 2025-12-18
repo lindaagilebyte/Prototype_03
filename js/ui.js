@@ -129,7 +129,7 @@ export function showDeathPopup(ui, customer) {
   ui.popupOverlay.style.display = 'flex';
   ui.typePopup.style.display = 'none';
   ui.deathPopup.style.display = 'block';
-  ui.deathPopupText.innerHTML = `<b>顧客已死亡</b><br>顧客${customer.name}因毒性過高死亡。<br>毒性：${customer.currentToxicity}/${customer.maxToxicity}。`;
+  ui.deathPopupText.innerHTML = `<b>顧客已死亡</b><br>顧客${customer.name}因毒性過高死亡。<br>毒性：${customer.currentToxicity.toFixed(2)}/${customer.maxToxicity}。`;
 }
 export function hideDeathPopup(ui) {
   ui.deathPopup.style.display = 'none';
