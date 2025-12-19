@@ -683,6 +683,7 @@ function setAlchemyLinkPayload(exportData) {
 function exportDiagnosisData(truthState, diagnosedState) {
   // Create a clean copy of diagnosed state without collectedConfidences
   const cleanDiagnosedState = {
+    customerName: truthState.customerName,
     constitution: diagnosedState.constitution,
     needs: diagnosedState.needs,
     toxicity: diagnosedState.toxicity
@@ -808,6 +809,7 @@ function showDiagnosisResultPopup(customer, needsData, onComplete) {
   
   // Build truth state for export
   const truthState = {
+    customerName: customer.name,
     constitution: customer.constitution,
     needs: customer.needs.map(n => ({ code: n.code, isMain: n.isMain })),
     toxicity: {
@@ -822,6 +824,7 @@ function showDiagnosisResultPopup(customer, needsData, onComplete) {
       diagnosis: {
         truth: truthState,
         diagnosed: {
+          customerName: customer.name,
           constitution: diagnosedState.constitution,
           needs: diagnosedState.needs,
           toxicity: diagnosedState.toxicity
