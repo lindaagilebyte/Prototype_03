@@ -745,13 +745,11 @@ h1 {
 
 /* Method colors: add two new palettes (問 / 切) */
 #btnAsk.actionButton {
-  /* warm / speech-ish, but still tag-like */
-  background: rgba(96, 72, 54, 0.92) !important;
+  background: rgba(86, 78, 110, 0.88) !important;
 }
 
 #btnPulse.actionButton {
-  /* cooler / physical-check-ish, but still tag-like */
-  background: rgba(58, 86, 92, 0.92) !important;
+  background: rgba(92, 56, 76, 0.92) !important;
 }
 
 

@@ -656,6 +656,28 @@ function showPulsePopup(customer) {
   };
   btnPulseOk.onclick = handler;
 }
+function toBase64UrlFromUtf8(str) {
+  const utf8Bytes = new TextEncoder().encode(str);
+  let binary = '';
+  for (let i = 0; i < utf8Bytes.length; i++) {
+    binary += String.fromCharCode(utf8Bytes[i]);
+  }
+  const b64 = btoa(binary);
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function setAlchemyLinkPayload(exportData) {
+  const link = document.getElementById('alchemyPrototypeLink');
+  if (!link) return;
+
+  const baseUrl = new URL(link.href);
+  const json = JSON.stringify(exportData); // compact (no pretty print)
+  const packed = toBase64UrlFromUtf8(json);
+
+  // Put payload in hash: .../#payload=xxxx
+  baseUrl.hash = `payload=${packed}`;
+  link.href = baseUrl.toString();
+}
 
 // Export diagnosis data to JSON file
 function exportDiagnosisData(truthState, diagnosedState) {
@@ -674,7 +696,7 @@ function exportDiagnosisData(truthState, diagnosedState) {
       diagnosed: cleanDiagnosedState
     }
   };
-  
+ 
   const jsonString = JSON.stringify(exportData, null, 2);
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -793,6 +815,20 @@ function showDiagnosisResultPopup(customer, needsData, onComplete) {
       max: customer.maxToxicity
     }
   };
+    // Update the outbound alchemy link immediately (no need to click 匯出)
+    const exportData = {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      diagnosis: {
+        truth: truthState,
+        diagnosed: {
+          constitution: diagnosedState.constitution,
+          needs: diagnosedState.needs,
+          toxicity: diagnosedState.toxicity
+        }
+      }
+    };
+    setAlchemyLinkPayload(exportData);
   
   // Set up Export button handler
   const btnExport = document.getElementById('btnDiagnosisResultExport');
