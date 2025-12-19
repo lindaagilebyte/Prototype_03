@@ -236,7 +236,6 @@ export function startDiagnosis(customer, clueSelection, needsData, onComplete) {
 function renderConfidenceBars(needsData) {
   const container = document.getElementById('confidenceBars');
   container.innerHTML = '';
-  
   needsData.forEach(need => {
     const bar = document.createElement('div');
     bar.className = 'confidenceBar';
@@ -265,15 +264,55 @@ function renderConfidenceBars(needsData) {
 function renderScatteredClues(clues) {
   const container = document.getElementById('cluesContainer');
   container.innerHTML = '';
+    // Block rectangles of real UI so scattered clues never overlap them
+    const containerRect = container.getBoundingClientRect();
+    const blockedRects = [];
   
+    function addBlockedRect(el, pad = 14) {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return;
+  
+      blockedRects.push({
+        x: (r.left - containerRect.left) - pad,
+        y: (r.top - containerRect.top) - pad,
+        w: r.width + pad * 2,
+        h: r.height + pad * 2,
+      });
+    }
+  
+    // Elements you want clues to avoid (diagnosis overlay UI)
+    addBlockedRect(document.getElementById('actionButtons'), 18);      // 問/切 area
+    addBlockedRect(document.getElementById('btnDiagnosisHelp'), 18);   // ?
+    addBlockedRect(document.getElementById('confidenceBars'), 18);     // right bars
+    addBlockedRect(document.getElementById('btnCommitDiagnosis'), 18); // 拍板
+  
+    function intersectsBlocked(x, y, w, h) {
+      for (const b of blockedRects) {
+        const noOverlap =
+          x + w <= b.x ||
+          x >= b.x + b.w ||
+          y + h <= b.y ||
+          y >= b.y + b.h;
+        if (!noOverlap) return true;
+      }
+      return false;
+    }  
   // Define safe zone boundaries (avoiding action buttons, bars, etc.)
   // More space now with smaller buttons and bars
   const safeZones = [
-    { x: 30, y: 150, width: 600, height: 380 } // Larger area, still avoiding right edge
+    // Avoid right-side bars/拍板 AND avoid the 問/切 area near top-center
+    { x: 30,  y: 260, width: 600, height: 270 }, // main lower field
+    { x: 30,  y: 150, width: 220, height: 90  }, // upper-left band (optional extra space)
+    { x: 410, y: 150, width: 220, height: 90  }, // upper-right band (optional extra space)
   ];
   
-  const placedPositions = [];
-  const minDistance = 130; // Minimum distance between clues
+  
+  const placedRects = [];              // store placed clue rectangles
+  const CLUE_W = 240;                  // conservative footprint width
+  const CLUE_H = 90;                   // conservative footprint height
+  const CLUE_MARGIN = 16;              // spacing buffer
+  
   
   clues.forEach((clue, index) => {
     // Calculate delay based on HiddenRank (0 = ignore, 1 = immediate, 10 = 5s)
@@ -319,23 +358,38 @@ function renderScatteredClues(clues) {
     // Find random position that doesn't overlap
     let position = null;
     let attempts = 0;
-    while (!position && attempts < 50) {
+    while (!position && attempts < 200) {
       attempts++;
       const zone = safeZones[Math.floor(Math.random() * safeZones.length)];
-      const x = zone.x + Math.random() * (zone.width - 200);
-      const y = zone.y + Math.random() * (zone.height - 80);
+      const x = zone.x + Math.random() * (zone.width - CLUE_W);
+      const y = zone.y + Math.random() * (zone.height - CLUE_H);
       
+      // NEW: reject positions that would overlap real UI (問/切/help/bars/拍板)
+      if (intersectsBlocked(x, y, 200, 80)) {
+        continue;
+      }      
       // Check distance from other clues
-      const tooClose = placedPositions.some(pos => {
-        const dx = pos.x - x;
-        const dy = pos.y - y;
-        return Math.sqrt(dx*dx + dy*dy) < minDistance;
+      const candidate = { x, y, w: CLUE_W, h: CLUE_H };
+
+      const overlapsOtherClue = placedRects.some(r => {
+        const ax1 = candidate.x - CLUE_MARGIN;
+        const ay1 = candidate.y - CLUE_MARGIN;
+        const ax2 = candidate.x + candidate.w + CLUE_MARGIN;
+        const ay2 = candidate.y + candidate.h + CLUE_MARGIN;
+      
+        const bx1 = r.x - CLUE_MARGIN;
+        const by1 = r.y - CLUE_MARGIN;
+        const bx2 = r.x + r.w + CLUE_MARGIN;
+        const by2 = r.y + r.h + CLUE_MARGIN;
+      
+        return !(ax2 <= bx1 || ax1 >= bx2 || ay2 <= by1 || ay1 >= by2);
       });
       
-      if (!tooClose) {
+      if (!overlapsOtherClue) {
         position = { x, y };
-        placedPositions.push(position);
+        placedRects.push(candidate);
       }
+      
     }
     
     // Set position for both placeholder and button

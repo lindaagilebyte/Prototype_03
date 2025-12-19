@@ -687,48 +687,73 @@ h1 {
   opacity: 1 !important;
 }
 
-/* Action buttons (問/切) - big square buttons above customer */
+/* Action buttons (問/切) - big “clue-material” buttons on the clue plane */
 #actionButtons {
   position: absolute !important;
+
+  /* Move from top UI bar -> clue plane (red boxes area) */
   left: 50% !important;
-  top: 40px !important;
+  top: 120px !important;              /* tune ONLY if needed */
   transform: translateX(-50%) !important;
+
   display: flex !important;
-  gap: 40px !important;
-  z-index: 10000 !important;
+  gap: 180px !important;              /* spreads them to left/right of head */
+  z-index: 10005 !important;          /* above most clue buttons, below speech balloon */
   pointer-events: auto !important;
 }
 
+/* Base: keep BIG + obvious, but change “material” to be closer to clue tags */
 .actionButton {
-  width: 100px !important;
-  height: 100px !important;
-  font-size: 42px !important;
-  font-weight: bold;
-  background: #2a4858;
-  color: #fff;
-  border: 3px solid #1a2838;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 6px 12px rgba(0,0,0,0.5);
-  line-height: 1;
+  width: 140px !important;
+  height: 90px !important;
+  font-size: 44px !important;
+  font-weight: 900 !important;
+
+  color: rgba(255,255,255,0.95) !important;
+
+  /* “clue-like” surface: softer, less UI-lever */
+  border-radius: 14px !important;
+  border: 2px solid rgba(255,255,255,0.22) !important;
+  box-shadow: 0 10px 18px rgba(0,0,0,0.55) !important;
+
+  cursor: pointer !important;
+  line-height: 1 !important;
+
+  /* Remove “system lever” lift language */
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease !important;
 }
 
+/* Hover: slight “presence” (NOT translateY UI-lift) */
 .actionButton:hover {
-  background: #3a5868;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+  transform: scale(1.03) !important;
+  filter: brightness(1.06) !important;
+  box-shadow: 0 12px 20px rgba(0,0,0,0.6) !important;
 }
 
 .actionButton:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transform: scale(0.995) !important;
+  filter: brightness(0.98) !important;
+  box-shadow: 0 8px 14px rgba(0,0,0,0.55) !important;
 }
 
 .actionButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  filter: none !important;
 }
+
+/* Method colors: add two new palettes (問 / 切) */
+#btnAsk.actionButton {
+  /* warm / speech-ish, but still tag-like */
+  background: rgba(96, 72, 54, 0.92) !important;
+}
+
+#btnPulse.actionButton {
+  /* cooler / physical-check-ish, but still tag-like */
+  background: rgba(58, 86, 92, 0.92) !important;
+}
+
 
 /* Confidence bars on the right */
 #confidenceBars {
@@ -1117,4 +1142,14 @@ h1 {
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid #ccc;
   cursor: pointer;
+}
+
+/* Hard-pin 問/切 size so future edits cannot widen them */
+#btnAsk, #btnPulse {
+  width: 100px !important;
+  height: 100px !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
 }
