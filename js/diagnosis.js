@@ -6,6 +6,120 @@ let availableQuestions = [];
 let isQuestionMenuOpen = false;
 let diagnosedState = null; // Player-observed state (starts empty, populated as player discovers)
 
+// Diagnosis help UI (inline panel inside #diagnosisOverlay)
+let diagnosisHelpOpen = false;
+let helpPrevButtonStates = null;
+
+function isPopupOverlayActive() {
+  const popupOverlay = document.getElementById('popupOverlay');
+  return !!(popupOverlay && popupOverlay.style.display === 'flex');
+}
+
+function setDiagnosisHelpOpen(open) {
+  const overlay = document.getElementById('diagnosisOverlay');
+  const panel = document.getElementById('diagnosisHelpPanel');
+  const btnHelp = document.getElementById('btnDiagnosisHelp');
+  if (!overlay || !panel || !btnHelp) return;
+
+  diagnosisHelpOpen = open;
+  overlay.classList.toggle('help-open', open);
+  panel.classList.toggle('active', open);
+  panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+
+  const btnAsk = document.getElementById('btnAsk');
+  const btnPulse = document.getElementById('btnPulse');
+  const btnCommit = document.getElementById('btnCommitDiagnosis');
+
+  if (open) {
+    helpPrevButtonStates = {
+      askDisabled: btnAsk ? btnAsk.disabled : null,
+      pulseDisabled: btnPulse ? btnPulse.disabled : null,
+      commitDisabled: btnCommit ? btnCommit.disabled : null,
+    };
+
+    if (btnAsk) btnAsk.disabled = true;
+    if (btnPulse) btnPulse.disabled = true;
+    if (btnCommit) btnCommit.disabled = true;
+    btnHelp.disabled = true;
+
+    // Disable visible clue buttons (match existing pattern)
+    const clueButtons = document.querySelectorAll('.clueButton');
+    clueButtons.forEach((b) => {
+      if (b.style.display !== 'none' && b.style.visibility !== 'hidden') {
+        if (!b.dataset.prevPointerEvents) b.dataset.prevPointerEvents = b.style.pointerEvents || '';
+        if (!b.dataset.prevOpacity) b.dataset.prevOpacity = b.style.opacity || '';
+        b.style.pointerEvents = 'none';
+        b.style.opacity = '0.5';
+      }
+    });
+
+    // allow button to be clickable again (panel close button is primary)
+    setTimeout(() => {
+      const bh = document.getElementById('btnDiagnosisHelp');
+      if (bh) bh.disabled = false;
+    }, 0);
+
+    return;
+  }
+
+  // Closing
+  overlay.classList.remove('help-open');
+
+  const balloon = document.getElementById('speechBalloon');
+  const balloonActive = !!(balloon && balloon.classList.contains('active'));
+  const popupActive = isPopupOverlayActive();
+
+  // Restore clue buttons only when nothing else is intentionally locking input
+  if (!balloonActive && !popupActive) {
+    const clueButtons = document.querySelectorAll('.clueButton');
+    clueButtons.forEach((b) => {
+      if (b.style.display !== 'none' && b.style.visibility !== 'hidden') {
+        if (b.dataset.prevPointerEvents !== undefined) {
+          b.style.pointerEvents = b.dataset.prevPointerEvents;
+          delete b.dataset.prevPointerEvents;
+        } else {
+          b.style.pointerEvents = 'auto';
+        }
+        if (b.dataset.prevOpacity !== undefined) {
+          b.style.opacity = b.dataset.prevOpacity;
+          delete b.dataset.prevOpacity;
+        } else {
+          b.style.opacity = '1';
+        }
+      }
+    });
+  }
+
+  // Restore fixed buttons
+  if (helpPrevButtonStates) {
+    if (btnPulse && helpPrevButtonStates.pulseDisabled !== null) btnPulse.disabled = helpPrevButtonStates.pulseDisabled;
+    if (btnCommit && helpPrevButtonStates.commitDisabled !== null) btnCommit.disabled = helpPrevButtonStates.commitDisabled;
+
+    // Ask: keep disabled if balloon active, otherwise restore
+    if (btnAsk && helpPrevButtonStates.askDisabled !== null) {
+      btnAsk.disabled = balloonActive ? true : helpPrevButtonStates.askDisabled;
+    }
+  }
+
+  // Re-apply normal ask availability rule unless balloon is active
+  if (!balloonActive) updateActionButtons();
+}
+
+function openDiagnosisHelpPanel() {
+  if (diagnosisHelpOpen) return;
+  // If a popup is active (selection UI etc), do NOT open this help
+  if (isPopupOverlayActive()) return;
+  // If speech balloon (問) is active, do NOT open help (prevents pointer-events race)
+  const balloon = document.getElementById('speechBalloon');
+  if (balloon && balloon.classList.contains('active')) return;
+  setDiagnosisHelpOpen(true);
+}
+
+function closeDiagnosisHelpPanel() {
+  if (!diagnosisHelpOpen) return;
+  setDiagnosisHelpOpen(false);
+}
+
 // Start diagnosis phase
 export function startDiagnosis(customer, clueSelection, needsData, onComplete) {
   console.log('startDiagnosis called');
@@ -38,6 +152,15 @@ export function startDiagnosis(customer, clueSelection, needsData, onComplete) {
   console.log('Overlay display after:', window.getComputedStyle(overlay).display);
   console.log('Overlay classes:', overlay.className);
   
+  // Ensure help UI is reset each time diagnosis starts
+  closeDiagnosisHelpPanel();
+  overlay.classList.remove('help-open');
+  const helpPanel = document.getElementById('diagnosisHelpPanel');
+  if (helpPanel) {
+    helpPanel.classList.remove('active');
+    helpPanel.setAttribute('aria-hidden', 'true');
+  }
+    
   // Force UI update to hide main buttons
   if (window.updateStatusAndUI) {
     window.updateStatusAndUI();
@@ -50,6 +173,24 @@ export function startDiagnosis(customer, clueSelection, needsData, onComplete) {
   const scatteredClues = clueSelection.selectedClues.filter(c => c.method === '望' || c.method === '聞');
   renderScatteredClues(scatteredClues);
   
+  // Set up diagnosis help button + close
+  const btnHelp = document.getElementById('btnDiagnosisHelp');
+  const btnHelpClose = document.getElementById('btnDiagnosisHelpClose');
+  if (btnHelp) {
+    btnHelp.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openDiagnosisHelpPanel();
+    };
+  }
+  if (btnHelpClose) {
+    btnHelpClose.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeDiagnosisHelpPanel();
+    };
+  }
+
   // Set up action buttons
   const btnAsk = document.getElementById('btnAsk');
   const btnPulse = document.getElementById('btnPulse');
@@ -78,8 +219,11 @@ export function startDiagnosis(customer, clueSelection, needsData, onComplete) {
   // Set up 拍板 button
   const btnCommit = document.getElementById('btnCommitDiagnosis');
   btnCommit.onclick = () => {
+    // Close diagnosis help BEFORE opening the selection popup
+    closeDiagnosisHelpPanel();
     showDiagnosisSelectionUI(customer, needsData, onComplete);
   };
+  
   
   // Update UI
   updateDiagnosisUI(customer, needsData);
@@ -386,6 +530,8 @@ function updateDiagnosisUI(customer, needsData) {
 
 // End diagnosis phase
 function endDiagnosis() {
+  // Close diagnosis help when ending diagnosis
+  closeDiagnosisHelpPanel();
   console.log('endDiagnosis called');
   const overlay = document.getElementById('diagnosisOverlay');
   overlay.classList.remove('active');

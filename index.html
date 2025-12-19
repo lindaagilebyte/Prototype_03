@@ -58,6 +58,38 @@
 
         <!-- Diagnosis overlay (for 四診 phase) -->
         <div id="diagnosisOverlay" style="display: none;">
+          <!-- Help button (top-left, diagnosis overlay only) -->
+          <button id="btnDiagnosisHelp" class="diagnosisHelpButton" aria-label="Help">?</button>
+
+          <!-- Inline help panel (inside diagnosis overlay; no new global overlay) -->
+          <div id="diagnosisHelpPanel" aria-hidden="true">
+            <div class="diagnosisHelpHeader">
+              <div class="diagnosisHelpTitle">說明</div>
+              <button id="btnDiagnosisHelpClose" class="diagnosisHelpClose" aria-label="Close">×</button>
+            </div>
+
+            <div class="diagnosisHelpBody">
+              <div class="diagnosisHelpSection">
+                <div class="diagnosisHelpSectionTitle">目前你在做什麼？</div>
+                <div class="diagnosisHelpText">使用「問／切」與線索來判定本次顧客的需求與毒性狀態。</div>
+              </div>
+
+              <div class="diagnosisHelpSection">
+                <div class="diagnosisHelpSectionTitle">按鈕用途</div>
+                <ul class="diagnosisHelpList">
+                  <li>問：取得一條「問」類線索（顯示在對話框）</li>
+                  <li>切：確認毒性（會顯示毒性數值）</li>
+                  <li>拍板：進入「診斷選擇」畫面，手動選主需求與次需求</li>
+                </ul>
+              </div>
+
+              <div class="diagnosisHelpSection">
+                <div class="diagnosisHelpSectionTitle">提示</div>
+                <div class="diagnosisHelpText">線索會增加右側的信心值。需要時再按「拍板」做出最終診斷。</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Action buttons (問/切) above customer -->
           <div id="actionButtons">
             <button id="btnAsk" class="actionButton">問</button>
