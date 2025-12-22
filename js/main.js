@@ -1109,6 +1109,16 @@ const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 client.on('connect', () => {
   console.log('[MQTT] connected, subscribing:', MQTT_TOPIC);
   client.subscribe(MQTT_TOPIC);
+  client.publish(
+    MQTT_TOPIC,
+    JSON.stringify({
+      source: 'clinic',
+      test: true,
+      message: 'hello from clinic'
+    })
+  );
+  log('[MQTT] sent test message (source=clinic)');
+  
 });
 
 client.on('message', (topic, msg) => {
