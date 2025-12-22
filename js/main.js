@@ -1103,7 +1103,7 @@ async function initializeApp() {
   updateStatusAndUI();
 
     // ---- MQTT TEST (TEMPORARY) ----
-    const testClient = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
+    const testClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
     testClient.on('connect', () => {
         console.log('[MQTT test] connected, sending test message');
