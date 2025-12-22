@@ -369,6 +369,7 @@ ui.btnClick.onclick = () => {
     log('ClickCustomer ignored (constitution already assigned).');
   }
   updateStatusAndUI();
+  saveRun('btnClick:assignConstitution');
 };
 
 ui.btnDiagnose.onclick = () => {
