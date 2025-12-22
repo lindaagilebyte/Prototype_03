@@ -1102,21 +1102,26 @@ async function initializeApp() {
   log('Simulation initialized. State=NoActiveVisit, toxicity=0, constitution=None.');
   updateStatusAndUI();
 
-    // ---- MQTT TEST (TEMPORARY) ----
-    const testClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+// ---- MQTT RECEIVE TEST (TEMPORARY) ----
+const MQTT_TOPIC = 'thirza/alchemy/v1';
+const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
-    testClient.on('connect', () => {
-        console.log('[MQTT test] connected, sending test message');
-        testClient.publish(
-            'thirza/alchemy/v1',
-            JSON.stringify({
-                source: 'clinic',
-                test: true,
-                message: 'hello from clinic'
-            })
-        );
-    });
-    // ---- END TEST ----
+client.on('connect', () => {
+  console.log('[MQTT] connected, subscribing:', MQTT_TOPIC);
+  client.subscribe(MQTT_TOPIC);
+});
+
+client.on('message', (topic, msg) => {
+  console.log('[MQTT] raw message:', topic, msg.toString());
+  try {
+    const data = JSON.parse(msg.toString());
+    console.log('[MQTT] parsed JSON:', data);
+  } catch (e) {
+    console.log('[MQTT] JSON parse failed:', e);
+  }
+});
+// ---- END MQTT RECEIVE TEST ----
+
   
 }
 
