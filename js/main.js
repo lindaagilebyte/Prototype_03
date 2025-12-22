@@ -14,6 +14,106 @@ let deathPopupVisible = false;
 let baseMouthBottom = 28;
 let greetingShowing = false;
 
+// --- Minimal Local Save (single truth, no locks, explicit actions only) ---
+const SAVE_KEY = 'proto.activeRun.v1';
+
+function getCheckpoint() {
+  // In your code, "customer exists" is effectively: customer.name !== null
+  return (customer.name === null) ? 'NO_CUSTOMER' : 'HAS_CUSTOMER';
+}
+
+function snapshotCustomer() {
+  if (customer.name === null) return null;
+
+  return {
+    name: customer.name,
+    constitution: customer.constitution,
+    needs: customer.needs, // already [{code,isMain}]
+    primaryNeedCode: customer.primaryNeedCode,
+    maxToxicity: customer.maxToxicity,
+    currentToxicity: customer.currentToxicity,
+    relationship: customer.relationship,
+    previousSatisfaction: customer.previousSatisfaction,
+    alive: customer.alive,
+    clothesColor: customer.clothesColor,
+    skinBaseColor: customer.skinBaseColor,
+    skinCurrentColor: customer.skinCurrentColor
+  };
+}
+
+function applyCustomerSnapshot(data) {
+  // Always start from a clean base
+  customer.reset();
+
+  if (!data) return;
+
+  customer.name = data.name ?? null;
+  customer.constitution = data.constitution ?? null;
+  customer.needs = Array.isArray(data.needs) ? data.needs : [];
+  customer.primaryNeedCode = data.primaryNeedCode ?? null;
+  customer.maxToxicity = data.maxToxicity ?? null;
+  customer.currentToxicity = typeof data.currentToxicity === 'number' ? data.currentToxicity : 0;
+
+  customer.relationship = data.relationship ?? 'New';
+  customer.previousSatisfaction = data.previousSatisfaction ?? 'None';
+  customer.alive = (typeof data.alive === 'boolean') ? data.alive : true;
+
+  customer.clothesColor = data.clothesColor ?? null;
+  customer.skinBaseColor = data.skinBaseColor ?? null;
+  customer.skinCurrentColor = data.skinCurrentColor ?? null;
+}
+
+function loadRun() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('[SAVE] loadRun failed:', e);
+    return null;
+  }
+}
+
+function saveRun(reason) {
+  try {
+    const run = {
+      checkpoint: getCheckpoint(),
+      customer: snapshotCustomer(),
+      updatedAt: Date.now(),
+      reason: reason || ''
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(run));
+
+    log(`[SAVE] saved (${run.checkpoint})${reason ? ' : ' + reason : ''}`);
+  } catch (e) {
+    log('[SAVE] save failed');
+  }
+}
+
+// Boot restore: restore customer if present, but ALWAYS return to safe checkpoint
+function restoreFromSave() {
+  const run = loadRun();
+
+  if (!run) {
+    log('[SAVE] restore: none');
+    customer.reset();
+  } else if (run.checkpoint !== 'HAS_CUSTOMER' || !run.customer) {
+    log('[SAVE] restore: NO_CUSTOMER');
+    customer.reset();
+  } else {
+    log('[SAVE] restore: HAS_CUSTOMER');
+    applyCustomerSnapshot(run.customer);
+  }
+
+  // Always force safe checkpoint
+  currentVisitState = Utils.VisitState.NoActiveVisit;
+  currentDiagnosis = null;
+  typePopupVisible = false;
+  deathPopupVisible = false;
+  greetingShowing = false;
+}
+
+
 // Game data (loaded from CSV)
 let needsData = [];
 let cluesData = [];
@@ -159,6 +259,7 @@ ui.btnReset.onclick = () => {
   ui.logEl.textContent = '';
   log('*** ADMIN: customer reset to fresh state. ***');
   updateStatusAndUI();
+  saveRun('btnReset');
 };
 
 ui.btnSpawn.onclick = () => {
@@ -215,6 +316,7 @@ ui.btnSpawn.onclick = () => {
     // Set flag immediately to prevent button from showing
     greetingShowing = true;
     updateStatusAndUI(); // Hide button immediately
+
     
     // Small delay to let customer sprite appear first
     setTimeout(() => {
@@ -245,6 +347,7 @@ ui.btnSpawn.onclick = () => {
   log(`Clues: ${cluesList}`);
   
   updateStatusAndUI();
+  saveRun('btnSpawn');
 };
 
 ui.btnClick.onclick = () => {
@@ -954,6 +1057,7 @@ function showAlchemyInputUI(customer, needsData, recipesData) {
       // Note: Don't call updateStatusAndUI() here as it might interfere with popup
       // It will be called when the user clicks "繼續" button
       currentDiagnosis = null;
+      saveRun('alchemyConfirm');
       showPostAlchemyScreen();
     }
     
@@ -993,6 +1097,7 @@ async function initializeApp() {
   if (recipesData.length === 0) {
     log('WARNING: No recipes loaded from recipes_from_datajs.csv. Check if file exists and is properly formatted.');
   }
+  restoreFromSave();
   log('Simulation initialized. State=NoActiveVisit, toxicity=0, constitution=None.');
   updateStatusAndUI();
 }
