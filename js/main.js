@@ -546,6 +546,130 @@ function escapeHtml(v) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+function applyPillsAndProceed(collectedPills, saveReason) {
+  log('Calculating results...');
+
+  // Compute toxicity from pills using 五行相剋 rules
+  const customerWeakness = Utils.wuxingWeakness[customer.constitution];
+  let totalToxicityDelta = 0;
+
+  log(`Customer constitution: ${customer.constitution}, weakness element: ${customerWeakness}`);
+
+  collectedPills.forEach((pill, index) => {
+    let pillToxicity = pill.toxicity;
+    let multiplier = 1.0;
+
+    if (pill.wuxing === customerWeakness) {
+      multiplier = Utils.WEAKNESS_MULTIPLIER;
+      pillToxicity = pill.toxicity * multiplier;
+      log(`  Pill ${index + 1}: Base toxicity=${pill.toxicity}, 五行=${pill.wuxing} (weakness match), multiplier=${multiplier}, final=${pillToxicity.toFixed(2)}`);
+    } else {
+      log(`  Pill ${index + 1}: Base toxicity=${pill.toxicity}, 五行=${pill.wuxing} (no match), multiplier=${multiplier}, final=${pillToxicity.toFixed(2)}`);
+    }
+
+    totalToxicityDelta += pillToxicity;
+  });
+
+  log(`Total toxicity delta: ${totalToxicityDelta.toFixed(2)}`);
+
+  // Apply toxicity to customer
+  const previousToxicity = customer.currentToxicity;
+  customer.increaseToxicity(totalToxicityDelta);
+
+  // Save after applying (your requirement)
+  saveRun(saveReason || 'pillsApplied');
+
+  if (!customer.alive) {
+    log(
+      `Toxicity increased from ${previousToxicity.toFixed(2)} to ${customer.currentToxicity.toFixed(2)} (> ${customer.maxToxicity}). ` +
+      `Customer died from toxicity.`
+    );
+    UI.showDeathPopup(ui, customer);
+    deathPopupVisible = true;
+    typePopupVisible = false;
+    return;
+  }
+
+  // Calculate satisfaction based on needs fulfillment
+  const customerBenefit = Utils.wuxingBenefit[customer.constitution];
+  const truthNeeds = customer.needs;
+
+  let maxScore = 0;
+  truthNeeds.forEach(need => { maxScore += need.isMain ? 2 : 1; });
+
+  let achievedScore = 0;
+  const metNeeds = new Set();
+  const needsWithBonus = new Set();
+  const needBestQuality = {};
+
+  truthNeeds.forEach(need => {
+    let needMet = false;
+    let hasBonus = false;
+    let bestQuality = null;
+    let bestQualityRank = -1;
+
+    collectedPills.forEach(pill => {
+      if (pill.needs.includes(need.code)) {
+        needMet = true;
+        if (pill.wuxing === customerBenefit) hasBonus = true;
+
+        const qualityRank = Utils.QUALITY_ORDER.indexOf(pill.quality);
+        if (qualityRank > bestQualityRank) {
+          bestQualityRank = qualityRank;
+          bestQuality = pill.quality;
+        }
+      }
+    });
+
+    if (needMet) {
+      metNeeds.add(need.code);
+      if (hasBonus) needsWithBonus.add(need.code);
+      if (bestQuality) needBestQuality[need.code] = bestQuality;
+    }
+  });
+
+  truthNeeds.forEach(need => {
+    if (metNeeds.has(need.code)) {
+      let needScore = need.isMain ? 2 : 1;
+
+      if (needsWithBonus.has(need.code)) {
+        needScore *= Utils.BENEFIT_MULTIPLIER;
+      }
+
+      const quality = needBestQuality[need.code] || 'B';
+      const qualityMultiplier = Utils.QUALITY_MULTIPLIERS[quality] || 1.0;
+      needScore *= qualityMultiplier;
+
+      achievedScore += needScore;
+    }
+  });
+
+  const fulfillmentRatio = maxScore > 0 ? achievedScore / maxScore : 0;
+
+  let satisfaction;
+  if (fulfillmentRatio >= 0.8) satisfaction = 'High';
+  else if (fulfillmentRatio < 0.4) satisfaction = 'Low';
+  else satisfaction = 'Medium';
+
+  const mainNeed = truthNeeds.find(n => n.isMain);
+  if (mainNeed && metNeeds.has(mainNeed.code)) {
+    const mainNeedBestQuality = needBestQuality[mainNeed.code] || 'B';
+    if (mainNeedBestQuality === 'C' && satisfaction === 'High') {
+      satisfaction = 'Medium';
+      log(`  Category cap applied: Main need quality is C, downgrading High to Medium`);
+    }
+  }
+
+  customer.previousSatisfaction = satisfaction;
+
+  log(
+    `Toxicity increased from ${previousToxicity.toFixed(2)} to ${customer.currentToxicity.toFixed(2)}/${customer.maxToxicity}. ` +
+    `Previous dose satisfaction: ${satisfaction}.`
+  );
+
+  currentDiagnosis = null;
+  showPostAlchemyScreen();
+}
 
 // Show handoff screen
 function showHandoffScreen(customer, needsData) {
@@ -661,6 +785,41 @@ function showHandoffScreen(customer, needsData) {
       </div>
     `;
 
+    const btnProceed = document.getElementById('btnHandoffProceed');
+    btnProceed.onclick = () => {
+      const meds2 = Array.isArray(mqttInboxLatest?.medicines) ? mqttInboxLatest.medicines : [];
+
+      const collectedPills = meds2.map((m) => {
+        let needs = Array.isArray(m.effectCodes) ? m.effectCodes.filter(Boolean) : [];
+
+        if (needs.length === 0) {
+          console.error('[MQTT] ERROR: effectCodes empty, defaulting to A', { id: m.id, name: m.name, medicine: m });
+          log(`[MQTT] ERROR: effectCodes empty for pill id=${m.id} name=${m.name}. Defaulting needs to [A].`);
+          needs = ['A'];
+        }
+
+        const tox = parseFloat(m.toxin);
+        if (!Number.isFinite(tox)) {
+          console.error('[MQTT] ERROR: toxin not a number', { id: m.id, name: m.name, toxin: m.toxin, medicine: m });
+          log(`[MQTT] ERROR: toxin invalid for pill id=${m.id} name=${m.name}. Using 0.`);
+        }
+
+        return {
+          needs,
+          toxicity: Number.isFinite(tox) ? tox : 0,
+          wuxing: m.element ?? '',
+          quality: m.quality ?? 'B'
+        };
+      });
+
+      // Prevent double-apply (your requirement)
+      mqttInboxLatest = null;
+
+      // Hide handoff screen; next UI is death popup or post-alchemy screen (both use overlay)
+      handoffScreen.style.display = 'none';
+
+      applyPillsAndProceed(collectedPills, 'mqttGivePills');
+    };
 
     // Keep the log if you still want it for debugging
     log('[MQTT] pills found package:');
@@ -1022,172 +1181,9 @@ function showAlchemyInputUI(customer, needsData, recipesData) {
     // Continue with flow - show "Calculating results"
     log('Calculating results...');
     
-    // Compute toxicity from pills using 五行相剋 rules
-    const customerWeakness = Utils.wuxingWeakness[customer.constitution];
-    let totalToxicityDelta = 0;
-    
-    log(`Customer constitution: ${customer.constitution}, weakness element: ${customerWeakness}`);
-    
-    collectedPills.forEach((pill, index) => {
-      let pillToxicity = pill.toxicity;
-      let multiplier = 1.0;
-      
-      // Check if pill's 五行 matches customer's weakness element
-      if (pill.wuxing === customerWeakness) {
-        multiplier = Utils.WEAKNESS_MULTIPLIER;
-        pillToxicity = pill.toxicity * multiplier;
-        log(`  Pill ${index + 1}: Base toxicity=${pill.toxicity}, 五行=${pill.wuxing} (weakness match), multiplier=${multiplier}, final=${pillToxicity.toFixed(2)}`);
-      } else {
-        log(`  Pill ${index + 1}: Base toxicity=${pill.toxicity}, 五行=${pill.wuxing} (no match), multiplier=${multiplier}, final=${pillToxicity.toFixed(2)}`);
-      }
-      
-      totalToxicityDelta += pillToxicity;
-    });
-    
-    log(`Total toxicity delta: ${totalToxicityDelta.toFixed(2)}`);
-    
-    // Apply toxicity to customer
-    const previousToxicity = customer.currentToxicity;
-    customer.increaseToxicity(totalToxicityDelta);
-    
-    let died = false;
-    if (!customer.alive) {
-      log(
-        `Toxicity increased from ${previousToxicity.toFixed(2)} to ${customer.currentToxicity.toFixed(2)} (> ${customer.maxToxicity}). ` +
-        `Customer died from toxicity.`
-      );
-      UI.showDeathPopup(ui, customer);
-      deathPopupVisible = true;
-      typePopupVisible = false;
-      died = true;
-    } else {
-      // Calculate satisfaction based on needs fulfillment
-      const customerBenefit = Utils.wuxingBenefit[customer.constitution];
-      const truthNeeds = customer.needs; // Use TRUTH/INTERNAL STATE, not diagnosed
-      
-      // Calculate maximum possible score
-      let maxScore = 0;
-      truthNeeds.forEach(need => {
-        maxScore += need.isMain ? 2 : 1;
-      });
-      
-      // Calculate achieved score
-      let achievedScore = 0;
-      const metNeeds = new Set(); // Track which needs were met
-      const needsWithBonus = new Set(); // Track which needs got 五行 bonus
-      const needBestQuality = {}; // Track best quality grade for each need
-      
-      truthNeeds.forEach(need => {
-        // Check if this need appears in any pill
-        let needMet = false;
-        let hasBonus = false;
-        let bestQuality = null;
-        let bestQualityRank = -1;
-        
-        collectedPills.forEach(pill => {
-          if (pill.needs.includes(need.code)) {
-            needMet = true;
-            // Check if this pill has beneficial 五行
-            if (pill.wuxing === customerBenefit) {
-              hasBonus = true;
-            }
-            // Find best quality grade for this need
-            const qualityRank = Utils.QUALITY_ORDER.indexOf(pill.quality);
-            if (qualityRank > bestQualityRank) {
-              bestQualityRank = qualityRank;
-              bestQuality = pill.quality;
-            }
-          }
-        });
-        
-        if (needMet) {
-          metNeeds.add(need.code);
-          if (hasBonus) {
-            needsWithBonus.add(need.code);
-          }
-          if (bestQuality) {
-            needBestQuality[need.code] = bestQuality;
-          }
-        }
-      });
-      
-      // Calculate score with bonuses and quality multipliers
-      truthNeeds.forEach(need => {
-        if (metNeeds.has(need.code)) {
-          let needScore = need.isMain ? 2 : 1;
-          
-          // Apply 五行 benefit multiplier if applicable
-          if (needsWithBonus.has(need.code)) {
-            needScore *= Utils.BENEFIT_MULTIPLIER;
-          }
-          
-          // Apply quality multiplier
-          const quality = needBestQuality[need.code] || 'B';
-          const qualityMultiplier = Utils.QUALITY_MULTIPLIERS[quality] || 1.0;
-          needScore *= qualityMultiplier;
-          
-          achievedScore += needScore;
-        }
-      });
-      
-      // Calculate fulfillment ratio
-      const fulfillmentRatio = maxScore > 0 ? achievedScore / maxScore : 0;
-      
-      // Determine satisfaction level
-      let satisfaction;
-      if (fulfillmentRatio >= 0.8) {
-        satisfaction = 'High';
-      } else if (fulfillmentRatio < 0.4) {
-        satisfaction = 'Low';
-      } else {
-        satisfaction = 'Medium';
-      }
-      
-      // Apply category cap: if main need's best quality is C, cap at Medium
-      const mainNeed = truthNeeds.find(n => n.isMain);
-      if (mainNeed && metNeeds.has(mainNeed.code)) {
-        const mainNeedBestQuality = needBestQuality[mainNeed.code] || 'B';
-        if (mainNeedBestQuality === 'C' && satisfaction === 'High') {
-          satisfaction = 'Medium';
-          log(`  Category cap applied: Main need quality is C, downgrading High to Medium`);
-        }
-      }
-      
-      customer.previousSatisfaction = satisfaction;
-      
-      // Log satisfaction calculation
-      log(`Satisfaction calculation:`);
-      log(`  Customer needs (truth): ${truthNeeds.map(n => n.code + (n.isMain ? '(main)' : '')).join(', ')}`);
-      log(`  Customer beneficial element: ${customerBenefit}`);
-      log(`  Met needs: ${Array.from(metNeeds).join(', ') || 'none'}`);
-      log(`  Needs with 五行 bonus: ${Array.from(needsWithBonus).join(', ') || 'none'}`);
-      truthNeeds.forEach(need => {
-        if (metNeeds.has(need.code)) {
-          const quality = needBestQuality[need.code] || 'B';
-          const qualityMultiplier = Utils.QUALITY_MULTIPLIERS[quality] || 1.0;
-          const hasBonus = needsWithBonus.has(need.code);
-          const baseScore = need.isMain ? 2 : 1;
-          let finalScore = baseScore;
-          if (hasBonus) finalScore *= Utils.BENEFIT_MULTIPLIER;
-          finalScore *= qualityMultiplier;
-          log(`    ${need.code}${need.isMain ? '(main)' : ''}: base=${baseScore}, 五行=${hasBonus ? Utils.BENEFIT_MULTIPLIER + 'x' : '1.0x'}, quality=${quality}(${qualityMultiplier}x), final=${finalScore.toFixed(2)}`);
-        }
-      });
-      log(`  Score: ${achievedScore.toFixed(2)}/${maxScore} (ratio: ${(fulfillmentRatio * 100).toFixed(1)}%)`);
-      log(`  Satisfaction: ${satisfaction}`);
-      
-      log(
-        `Toxicity increased from ${previousToxicity.toFixed(2)} to ${customer.currentToxicity.toFixed(2)}/${customer.maxToxicity}. ` +
-        `Previous dose satisfaction: ${satisfaction}.`
-      );
-      
-      // Show post-alchemy feedback screen
-      // Note: Don't call updateStatusAndUI() here as it might interfere with popup
-      // It will be called when the user clicks "繼續" button
-      currentDiagnosis = null;
-      saveRun('alchemyConfirm');
-      showPostAlchemyScreen();
-    }
+    applyPillsAndProceed(collectedPills, 'alchemyConfirm');
+
+
     
     // If customer died, updateStatusAndUI was already called in death popup handler
     // If customer alive, updateStatusAndUI will be called when post-alchemy screen closes
