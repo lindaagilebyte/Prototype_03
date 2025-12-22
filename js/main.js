@@ -539,7 +539,7 @@ function showHandoffScreen(customer, needsData) {
     handoffScreen.style.display = 'none';
     
     // Show alchemy input UI
-    showAlchemyInputUI(customer, needsData, recipesData);
+    //showAlchemyInputUI(customer, needsData, recipesData);
   };
 }
 
@@ -1101,6 +1101,23 @@ async function initializeApp() {
   restoreFromSave();
   log('Simulation initialized. State=NoActiveVisit, toxicity=0, constitution=None.');
   updateStatusAndUI();
+
+    // ---- MQTT TEST (TEMPORARY) ----
+    const testClient = mqtt.connect('wss://broker.hivemq.com:8000/mqtt');
+
+    testClient.on('connect', () => {
+        console.log('[MQTT test] connected, sending test message');
+        testClient.publish(
+            'thirza/alchemy/v1',
+            JSON.stringify({
+                source: 'clinic',
+                test: true,
+                message: 'hello from clinic'
+            })
+        );
+    });
+    // ---- END TEST ----
+  
 }
 
 // Start the app
