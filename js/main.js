@@ -590,12 +590,32 @@ btnImport.onclick = () => {
     return;
   }
 
-  // Pills found: for now, just show info (no apply yet)
-  if (msgEl) msgEl.textContent = 'Pills found.';
-  log('[MQTT] pills found package:');
-  log(JSON.stringify(mqttInboxLatest, null, 2));
+// Pills found: show info on the handoff screen (no apply yet)
+const meds = Array.isArray(mqttInboxLatest.medicines) ? mqttInboxLatest.medicines : [];
 
-  // Next step (after you confirm this stage works): show confirmation UI + apply+save+clear+return
+const lines = meds.map((m, idx) => {
+  const effects = Array.isArray(m.effectCodes) ? m.effectCodes.join(',') : '';
+  return [
+    `#${idx + 1}`,
+    `name=${m.name ?? ''}`,
+    `element=${m.element ?? ''}`,
+    `quality=${m.quality ?? ''}`,
+    `toxin=${m.toxin ?? ''}`,
+    `effects=${effects}`
+  ].join('  ');
+});
+
+if (msgEl) {
+  msgEl.style.whiteSpace = 'pre-wrap';
+  msgEl.textContent =
+    `Pills found.\npatientName=${mqttInboxLatest.patientName ?? ''}\n` +
+    lines.join('\n');
+}
+
+// Keep the log if you still want it for debugging
+log('[MQTT] pills found package:');
+log(JSON.stringify(mqttInboxLatest, null, 2));
+
 };
 
 }
