@@ -16,6 +16,11 @@ let greetingShowing = false;
 
 // --- Minimal Local Save (single truth, no locks, explicit actions only) ---
 const SAVE_KEY = 'proto.activeRun.v1';
+// Saved for debug only; ignored on restore
+let savedPhaseForDebug = 'READY';
+
+// In-memory inbox: last received package (discarded on restore/reset)
+let mqttInboxLatest = null;
 
 function getCheckpoint() {
   // In your code, "customer exists" is effectively: customer.name !== null
@@ -111,6 +116,22 @@ function restoreFromSave() {
   typePopupVisible = false;
   deathPopupVisible = false;
   greetingShowing = false;
+  // ignore any saved phase; discard pending inbox
+  savedPhaseForDebug = 'READY';
+  mqttInboxLatest = null;
+
+  // Ensure handoff/postAlchemy/alchemyInput are not left visible
+  const popupOverlay = document.getElementById('popupOverlay');
+  if (popupOverlay) popupOverlay.style.display = 'none';
+
+  const handoffScreen = document.getElementById('handoffScreen');
+  if (handoffScreen) handoffScreen.style.display = 'none';
+
+  const postAlchemyScreen = document.getElementById('postAlchemyScreen');
+  if (postAlchemyScreen) postAlchemyScreen.style.display = 'none';
+
+  const alchemyInputUI = document.getElementById('alchemyInputUI');
+  if (alchemyInputUI) alchemyInputUI.style.display = 'none';
 }
 
 
@@ -250,6 +271,8 @@ function showCustomerGreeting() {
 
 // --- Button Handlers ---
 ui.btnReset.onclick = () => {
+  mqttInboxLatest = null;
+  savedPhaseForDebug = 'READY';
   customer.reset();
   currentVisitState = Utils.VisitState.NoActiveVisit;
   currentDiagnosis = null;
@@ -532,15 +555,49 @@ function showHandoffScreen(customer, needsData) {
   document.getElementById('alchemyInputUI').style.display = 'none';
   
   // Set up Proceed button
-  const btnProceed = document.getElementById('btnHandoffProceed');
-  btnProceed.onclick = () => {
-    // Close handoff screen
-    popupOverlay.style.display = 'none';
-    handoffScreen.style.display = 'none';
-    
-    // Show alchemy input UI
-    //showAlchemyInputUI(customer, needsData, recipesData);
-  };
+// Set up Export / Import
+const linkEl = document.getElementById('alchemyPrototypeLink');
+const msgEl = document.getElementById('handoffMessage');
+const btnExport = document.getElementById('btnHandoffExport');
+const btnImport = document.getElementById('btnHandoffImport');
+
+// Reset UI each time
+if (linkEl) linkEl.style.display = 'none';
+if (msgEl) msgEl.textContent = '';
+
+// Debug phase only (saved but ignored on restore)
+savedPhaseForDebug = 'HANDOFF';
+saveRun('phase=HANDOFF');
+
+btnExport.onclick = () => {
+  if (linkEl) linkEl.style.display = 'inline';
+  if (msgEl) msgEl.textContent = 'Link revealed. Go make pills, then come back and press Import pills.';
+};
+
+btnImport.onclick = () => {
+  if (!mqttInboxLatest) {
+    alert('No pills found. Go make pills in the other prototype and come back when ready.');
+    return;
+  }
+
+  const incomingName = mqttInboxLatest.patientName;
+  const currentName = customer?.name;
+
+  if (currentName && incomingName && currentName !== incomingName) {
+    console.error('[MQTT] patientName mismatch', { currentName, incomingName, pkg: mqttInboxLatest });
+    mqttInboxLatest = null;
+    alert(`Received pills for a different patient (${incomingName}). Discarded. Please resend results and make the correct pills for ${currentName}.`);
+    return;
+  }
+
+  // Pills found: for now, just show info (no apply yet)
+  if (msgEl) msgEl.textContent = 'Pills found.';
+  log('[MQTT] pills found package:');
+  log(JSON.stringify(mqttInboxLatest, null, 2));
+
+  // Next step (after you confirm this stage works): show confirmation UI + apply+save+clear+return
+};
+
 }
 
 // Show post-alchemy feedback screen
@@ -1126,10 +1183,23 @@ client.on('message', (topic, msg) => {
   try {
     const data = JSON.parse(msg.toString());
     console.log('[MQTT] parsed JSON:', data);
+
+    // accept only real alchemy result packages
+    if (data?.source !== 'AlchemySystem' || !Array.isArray(data?.medicines)) {
+      log('[MQTT] ignored (not an alchemy package)');
+      return;
+    }
+
+    mqttInboxLatest = data;
+    log(
+      `[MQTT] stored alchemy package: patientName=${data.patientName ?? '(missing)'} medicines=${data.medicines.length}`
+    );
+
   } catch (e) {
     console.log('[MQTT] JSON parse failed:', e);
   }
 });
+
 // ---- END MQTT RECEIVE TEST ----
 
   
