@@ -538,10 +538,27 @@ ui.btnDeathOk.onclick = () => {
   updateStatusAndUI();
 };
 
+function escapeHtml(v) {
+  return String(v ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 // Show handoff screen
 function showHandoffScreen(customer, needsData) {
   const popupOverlay = document.getElementById('popupOverlay');
   const handoffScreen = document.getElementById('handoffScreen');
+    
+  // Restore original handoff screen markup (Import replaces the whole screen)
+  if (!window.__handoffOriginalHTML) {
+    window.__handoffOriginalHTML = handoffScreen.innerHTML;
+  } else {
+    handoffScreen.innerHTML = window.__handoffOriginalHTML;
+  }
+
   
   // Show handoff screen
   popupOverlay.style.display = 'flex';
@@ -555,68 +572,101 @@ function showHandoffScreen(customer, needsData) {
   document.getElementById('alchemyInputUI').style.display = 'none';
   
   // Set up Proceed button
-// Set up Export / Import
-const linkEl = document.getElementById('alchemyPrototypeLink');
-const msgEl = document.getElementById('handoffMessage');
-const btnExport = document.getElementById('btnHandoffExport');
-const btnImport = document.getElementById('btnHandoffImport');
+  // Set up Export / Import
+  const linkEl = document.getElementById('alchemyPrototypeLink');
+  const msgEl = document.getElementById('handoffMessage');
+  const btnExport = document.getElementById('btnHandoffExport');
+  const btnImport = document.getElementById('btnHandoffImport');
 
-// Reset UI each time
-if (linkEl) linkEl.style.display = 'none';
-if (msgEl) msgEl.textContent = '';
+  // Reset UI each time
+  if (linkEl) linkEl.style.display = 'none';
+  if (msgEl) msgEl.textContent = '';
 
-// Debug phase only (saved but ignored on restore)
-savedPhaseForDebug = 'HANDOFF';
-saveRun('phase=HANDOFF');
+  // Debug phase only (saved but ignored on restore)
+  savedPhaseForDebug = 'HANDOFF';
+  saveRun('phase=HANDOFF');
 
-btnExport.onclick = () => {
-  if (linkEl) linkEl.style.display = 'inline';
-  if (msgEl) msgEl.textContent = 'Link revealed. Go make pills, then come back and press Import pills.';
-};
 
-btnImport.onclick = () => {
-  if (!mqttInboxLatest) {
-    alert('No pills found. Go make pills in the other prototype and come back when ready.');
-    return;
-  }
 
-  const incomingName = mqttInboxLatest.patientName;
-  const currentName = customer?.name;
+  btnExport.onclick = () => {
+    if (linkEl) linkEl.style.display = 'inline';
+    if (msgEl) msgEl.textContent = 'Link revealed. Go make pills, then come back and press Import pills.';
+  };
 
-  if (currentName && incomingName && currentName !== incomingName) {
-    console.error('[MQTT] patientName mismatch', { currentName, incomingName, pkg: mqttInboxLatest });
-    mqttInboxLatest = null;
-    alert(`Received pills for a different patient (${incomingName}). Discarded. Please resend results and make the correct pills for ${currentName}.`);
-    return;
-  }
+  btnImport.onclick = () => {
+    if (!mqttInboxLatest) {
+      alert('No pills found. Go make pills in the other prototype and come back when ready.');
+      return;
+    }
 
-// Pills found: show info on the handoff screen (no apply yet)
-const meds = Array.isArray(mqttInboxLatest.medicines) ? mqttInboxLatest.medicines : [];
+    const incomingName = mqttInboxLatest.patientName;
+    const currentName = customer?.name;
 
-const lines = meds.map((m, idx) => {
-  const effects = Array.isArray(m.effectCodes) ? m.effectCodes.join(',') : '';
-  return [
-    `#${idx + 1}`,
-    `name=${m.name ?? ''}`,
-    `element=${m.element ?? ''}`,
-    `quality=${m.quality ?? ''}`,
-    `toxin=${m.toxin ?? ''}`,
-    `effects=${effects}`
-  ].join('  ');
-});
+    if (currentName && incomingName && currentName !== incomingName) {
+      console.error('[MQTT] patientName mismatch', { currentName, incomingName, pkg: mqttInboxLatest });
+      mqttInboxLatest = null;
+      alert(`Received pills for a different patient (${incomingName}). Discarded. Please resend results and make the correct pills for ${currentName}.`);
+      return;
+    }
 
-if (msgEl) {
-  msgEl.style.whiteSpace = 'pre-wrap';
-  msgEl.textContent =
-    `Pills found.\npatientName=${mqttInboxLatest.patientName ?? ''}\n` +
-    lines.join('\n');
-}
+    // Pills found: replace the whole handoff screen (no apply yet)
+    const meds = Array.isArray(mqttInboxLatest.medicines)
+      ? mqttInboxLatest.medicines
+      : [];
 
-// Keep the log if you still want it for debugging
-log('[MQTT] pills found package:');
-log(JSON.stringify(mqttInboxLatest, null, 2));
+    const patientName = mqttInboxLatest.patientName ?? '';
 
-};
+    const rowsHtml = meds.map((m, i) => {
+      const name = escapeHtml(m.name);
+      const element = escapeHtml(m.element);
+      const quality = escapeHtml(m.quality);
+      const effects = Array.isArray(m.effectCodes) ? m.effectCodes.join(',') : '';
+
+      return `
+        <tr>
+          <td style="padding:6px 10px; text-align:right;">${i + 1}</td>
+          <td style="padding:6px 10px;">${name}</td>
+          <td style="padding:6px 10px;">${element}</td>
+          <td style="padding:6px 10px;">${quality}</td>
+          <td style="padding:6px 10px;">${escapeHtml(effects)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    handoffScreen.innerHTML = `
+      <h3>問診流程已結束</h3>
+
+      <div style="max-width:760px; margin:16px auto; text-align:left;">
+        <div style="font-weight:700; margin-bottom:8px;">Pills found.</div>
+        <div style="margin-bottom:12px;">patientName=${escapeHtml(patientName)}</div>
+
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>name</th>
+              <th>element</th>
+              <th>quality</th>
+              <th>effects</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml || `<tr><td colspan="5">(no pills)</td></tr>`}
+          </tbody>
+        </table>
+
+        <div style="display:flex; justify-content:center; margin-top:18px;">
+          <button id="btnHandoffProceed">Give pills</button>
+        </div>
+      </div>
+    `;
+
+
+    // Keep the log if you still want it for debugging
+    log('[MQTT] pills found package:');
+    log(JSON.stringify(mqttInboxLatest, null, 2));
+
+  };
 
 }
 

@@ -172,12 +172,7 @@
             <h3>問診流程已結束</h3>
             <div id="handoffContent">
               <p>下一步會進入 煉丹系統</p>
-              <p>但本Prototype不做煉丹，只是：</p>
-              <ul style="text-align: left; margin: 20px 0;">
-                <li>先提供「交給煉丹系統的輸出」（前一畫面）</li>
-                <li>然後讓操作者去外部煉丹系統跑一次</li>
-                <li>再回來這邊手動輸入煉丹結果</li>
-              </ul>
+              <p>請先匯出問診結果，供外部煉丹Prototype使用。</p>
               <p style="margin-top: 16px;">
                 外部煉丹Prototype：
                 <br>
@@ -193,9 +188,10 @@
               </p>
             </div>
             <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
-              <button id="btnHandoffExport">Export</button>
+              <button id="btnHandoffExport">匯出問診結果</button>
               <button id="btnHandoffImport">Import pills</button>
             </div>
+            
             <div id="handoffMessage" style="margin-top: 12px; text-align: center;"></div>
             
           </div>
