@@ -1,6 +1,6 @@
 // Version string (update timestamp and version number on each code change)
 // Format: YYYY-MM-DD-HH:MM-vX.X
-export const VERSION = '2025-12-18-v001';
+export const VERSION = '2025-12-23-v01';
 
 // Enums and pools
 export const VisitState = Object.freeze({
