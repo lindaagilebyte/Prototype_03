@@ -675,6 +675,61 @@ h1 {
   display: none !important;
   pointer-events: auto !important;
 }
+/* Selection UI: anchor for absolute-positioned help */
+#diagnosisSelectionUI{
+  position: relative;
+}
+
+/* Round help button (selection UI) */
+.diagnosisSelectionHelpButton{
+  position: absolute;
+  left: 16px;
+  top: 16px;
+
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #ccc;
+  color: #111;
+
+  font-size: 26px;
+  font-weight: 700;
+
+  cursor: pointer;
+  z-index: 10;
+}
+
+/* Inline help panel inside selection UI */
+#diagnosisSelectionHelpPanel{
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  padding: 14px;
+
+  z-index: 20;
+  display: none;
+  pointer-events: auto;
+}
+
+#diagnosisSelectionHelpPanel.active{
+  display: block;
+}
+
+/* When help is open, block interaction with everything else in selection UI */
+#diagnosisSelectionUI.help-open #diagnosisSelectionContent,
+#diagnosisSelectionUI.help-open #btnDiagnosisSelectionCancel,
+#diagnosisSelectionUI.help-open #btnDiagnosisSelectionConfirm{
+  pointer-events: none;
+  opacity: 0.5;
+}
 
 #diagnosisHelpPanel.active {
   display: block !important;
@@ -685,6 +740,10 @@ h1 {
   justify-content: space-between !important;
   align-items: center !important;
   margin-bottom: 10px !important;
+}
+/* Manual diagnosis selection help: header has only the X, so right-align it */
+#diagnosisSelectionHelpPanel .diagnosisHelpHeader{
+  justify-content: flex-end !important;
 }
 
 .diagnosisHelpTitle {
@@ -726,6 +785,11 @@ h1 {
 
 .diagnosisHelpList {
   margin: 6px 0 0 18px !important;
+}
+.diagnosisHelpDivider {
+  height: 1px;
+  background: rgba(255,255,255,0.15);
+  margin: 20px 0;
 }
 
 /* When help is open, dim diagnosis UI elements (input blocking is handled in JS) */

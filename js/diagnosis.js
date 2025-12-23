@@ -9,6 +9,34 @@ let diagnosedState = null; // Player-observed state (starts empty, populated as 
 // Diagnosis help UI (inline panel inside #diagnosisOverlay)
 let diagnosisHelpOpen = false;
 let helpPrevButtonStates = null;
+// Manual diagnosis selection help UI (inline panel inside #diagnosisSelectionUI)
+let diagnosisSelectionHelpOpen = false;
+
+function setDiagnosisSelectionHelpOpen(open) {
+  const selectionUI = document.getElementById('diagnosisSelectionUI');
+  const panel = document.getElementById('diagnosisSelectionHelpPanel');
+  const btnHelp = document.getElementById('btnDiagnosisSelectionHelp');
+  if (!selectionUI || !panel || !btnHelp) return;
+
+  diagnosisSelectionHelpOpen = open;
+  selectionUI.classList.toggle('help-open', open);
+  panel.classList.toggle('active', open);
+  panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+
+  // Prevent repeated clicks while open (close button is primary)
+  btnHelp.disabled = open;
+  if (!open) btnHelp.disabled = false;
+}
+
+function openDiagnosisSelectionHelpPanel() {
+  if (diagnosisSelectionHelpOpen) return;
+  setDiagnosisSelectionHelpOpen(true);
+}
+
+function closeDiagnosisSelectionHelpPanel() {
+  if (!diagnosisSelectionHelpOpen) return;
+  setDiagnosisSelectionHelpOpen(false);
+}
 
 function isPopupOverlayActive() {
   const popupOverlay = document.getElementById('popupOverlay');
@@ -119,6 +147,8 @@ function closeDiagnosisHelpPanel() {
   if (!diagnosisHelpOpen) return;
   setDiagnosisHelpOpen(false);
 }
+
+
 
 // Start diagnosis phase
 export function startDiagnosis(customer, clueSelection, needsData, onComplete) {
@@ -626,6 +656,15 @@ function showPulsePopup(customer) {
   popupOverlay.style.display = 'flex';
   popupOverlay.style.zIndex = '30000'; // Above diagnosis overlay
   pulsePopup.style.display = 'block';
+  // Reset + wire manual selection help each time this UI opens
+  setDiagnosisSelectionHelpOpen(false);
+
+  const btnSelHelp = document.getElementById('btnDiagnosisSelectionHelp');
+  const btnSelHelpClose = document.getElementById('btnDiagnosisSelectionHelpClose');
+
+  if (btnSelHelp) btnSelHelp.onclick = () => openDiagnosisSelectionHelpPanel();
+  if (btnSelHelpClose) btnSelHelpClose.onclick = () => closeDiagnosisSelectionHelpPanel();
+
   document.getElementById('typePopup').style.display = 'none';
   document.getElementById('deathPopup').style.display = 'none';
   
@@ -883,6 +922,27 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
   const selectionUI = document.getElementById('diagnosisSelectionUI');
   const needsArea = document.getElementById('needsSelectionArea');
   const toxicityArea = document.getElementById('toxicityDisplayArea');
+    // --- Selection Help (wire every time this UI opens; safe because we overwrite onclick) ---
+    closeDiagnosisSelectionHelpPanel(); // reset open state
+
+    const btnSelHelp = document.getElementById('btnDiagnosisSelectionHelp');
+    const btnSelHelpClose = document.getElementById('btnDiagnosisSelectionHelpClose');
+  
+    if (btnSelHelp) {
+      btnSelHelp.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openDiagnosisSelectionHelpPanel();
+      };
+    }
+  
+    if (btnSelHelpClose) {
+      btnSelHelpClose.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeDiagnosisSelectionHelpPanel();
+      };
+    }
   
   // Clear previous content
   needsArea.innerHTML = '';
@@ -1012,6 +1072,7 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
   // Set up Cancel button
   const btnCancel = document.getElementById('btnDiagnosisSelectionCancel');
   btnCancel.onclick = () => {
+    closeDiagnosisSelectionHelpPanel();
     popupOverlay.style.display = 'none';
     selectionUI.style.display = 'none';
     
@@ -1027,6 +1088,7 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
   // Set up Confirm button
   const btnConfirm = document.getElementById('btnDiagnosisSelectionConfirm');
   btnConfirm.onclick = () => {
+    closeDiagnosisSelectionHelpPanel();
     // Get player's selections
     const mainSelected = document.querySelector('input[name="mainNeed"]:checked');
     const secondarySelected = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'));

@@ -165,6 +165,49 @@
           <!-- Diagnosis Selection UI (for 拍板) -->
           <div id="diagnosisSelectionUI">
             <h3>診斷選擇</h3>
+            <button id="btnDiagnosisSelectionHelp" class="diagnosisSelectionHelpButton" aria-label="說明">?</button>
+
+            <div id="diagnosisSelectionHelpPanel" aria-hidden="true">
+              <div class="diagnosisHelpHeader">
+                <button id="btnDiagnosisSelectionHelpClose" class="diagnosisHelpClose" aria-label="關閉">×</button>
+              </div>
+            
+              <div class="diagnosisHelpBody">
+                <div class="diagnosisHelpSection">
+                  <div class="diagnosisHelpSectionTitle">手動指定需求</div>
+                  <div class="diagnosisHelpText">本畫面提供手動指定顧客需求：</div>
+                  <div class="diagnosisHelpText">選擇1個【主需求】，並可額外選擇最多2個【次需求】。</div>
+              
+                  <div style="height:8px;"></div>
+              
+                  <div class="diagnosisHelpText">所選內容為玩家的判斷，可能與顧客的實際需求不一致。</div>
+                  <div class="diagnosisHelpText">若要採取最穩妥的方式，可返回診斷畫面蒐集所有線索，待出現一般的【確認診斷】後改用該結果（不需在此手動選擇）。</div>
+                  <div class="diagnosisHelpText">尚未把握時，可先暫不拍板；先返回診斷畫面再多做觀察。</div>
+                </div>
+              <!-- visual separator between concept and mechanics -->
+              <div class="diagnosisHelpDivider"></div>
+
+              <div class="diagnosisHelpSection">
+                <div class="diagnosisHelpTitle">畫面操作</div>
+              </div>
+
+                <div class="diagnosisHelpSection">
+                  <div class="diagnosisHelpSectionTitle">選擇需求</div>
+                  <ul class="diagnosisHelpList">
+                    <li>每次只能選1個【主需求】</li>
+                    <li>最多可選2個【次需求】</li>
+                    <li>同一個需求不可同時為主需求與次需求</li>
+                  </ul>
+                </div>
+            
+                <div class="diagnosisHelpSection">
+                  <div class="diagnosisHelpSectionTitle">確認診斷</div>
+                  <div class="diagnosisHelpText">選好主需求後，【確認診斷】才可按。</div>
+                  <div class="diagnosisHelpText">若次需求超過2個，【確認診斷】會被停用。</div>
+                </div>
+              </div>
+            </div>
+                        
             <div id="diagnosisSelectionContent">
               <div id="needsSelectionArea"></div>
               <div id="toxicityDisplayArea"></div>
