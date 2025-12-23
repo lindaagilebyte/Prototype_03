@@ -902,10 +902,13 @@ function showHandoffScreen(customer, needsData) {
   
 
   btnImport.onclick = () => {
+    log(`[Import] Checking for pills... mqttInboxLatest is ${mqttInboxLatest ? 'set' : 'null'}`);
     if (!mqttInboxLatest) {
+      log('[Import] No pills found in inbox. Make sure pills were exported from alchemy system.');
       alert('No pills found. Go make pills in the other prototype and come back when ready.');
       return;
     }
+    log(`[Import] Found pills package: patientName=${mqttInboxLatest.patientName}, medicines=${mqttInboxLatest.medicines?.length || 0}`);
 
     const incomingName = mqttInboxLatest.patientName;
     const currentName = customer?.name;
@@ -1446,23 +1449,32 @@ function initializeMqtt() {
 
   client.on('message', (topic, msg) => {
     console.log('[MQTT] raw message from topic:', topic, msg.toString());
+    log(`[MQTT] received message on topic: ${topic}`);
+    
     try {
       const data = JSON.parse(msg.toString());
       console.log('[MQTT] parsed JSON:', data);
+      log(`[MQTT] parsed message - source: ${data?.source}, has medicines: ${Array.isArray(data?.medicines)}`);
 
       // accept only real alchemy result packages
-      if (data?.source !== 'AlchemySystem' || !Array.isArray(data?.medicines)) {
-        log('[MQTT] ignored (not an alchemy package)');
+      if (data?.source !== 'AlchemySystem') {
+        log(`[MQTT] ignored - source is '${data?.source}', expected 'AlchemySystem'`);
+        return;
+      }
+      
+      if (!Array.isArray(data?.medicines)) {
+        log(`[MQTT] ignored - medicines is not an array (type: ${typeof data?.medicines})`);
         return;
       }
 
       mqttInboxLatest = data;
       log(
-        `[MQTT] stored alchemy package from ${topic}: patientName=${data.patientName ?? '(missing)'} medicines=${data.medicines.length}`
+        `[MQTT] ✓ stored alchemy package from ${topic}: patientName=${data.patientName ?? '(missing)'} medicines=${data.medicines.length}`
       );
 
     } catch (e) {
       console.log('[MQTT] JSON parse failed:', e);
+      log(`[MQTT] JSON parse failed: ${e.message}`);
     }
   });
 
