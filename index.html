@@ -64,31 +64,39 @@
           <!-- Inline help panel (inside diagnosis overlay; no new global overlay) -->
           <div id="diagnosisHelpPanel" aria-hidden="true">
             <div class="diagnosisHelpHeader">
-              <div class="diagnosisHelpTitle">說明</div>
+              <div class="diagnosisHelpTitle">觀察顧客並進行診斷</div>
               <button id="btnDiagnosisHelpClose" class="diagnosisHelpClose" aria-label="Close">×</button>
             </div>
-
+          
             <div class="diagnosisHelpBody">
               <div class="diagnosisHelpSection">
-                <div class="diagnosisHelpSectionTitle">目前你在做什麼？</div>
-                <div class="diagnosisHelpText">使用「問／切」與線索來判定本次顧客的需求與毒性狀態。</div>
-              </div>
-
-              <div class="diagnosisHelpSection">
-                <div class="diagnosisHelpSectionTitle">按鈕用途</div>
+                <div class="diagnosisHelpSectionTitle">基本操作</div>
                 <ul class="diagnosisHelpList">
-                  <li>問：取得一條「問」類線索（顯示在對話框）</li>
-                  <li>切：確認毒性（會顯示毒性數值）</li>
-                  <li>拍板：進入「診斷選擇」畫面，手動選主需求與次需求</li>
+                  <li>使用【望】、【聞】、【問】來觀察並詢問顧客</li>
+                  <li>使用切來把脈</li>
                 </ul>
               </div>
-
+          
               <div class="diagnosisHelpSection">
-                <div class="diagnosisHelpSectionTitle">提示</div>
-                <div class="diagnosisHelpText">線索會增加右側的信心值。需要時再按「拍板」做出最終診斷。</div>
+                <div class="diagnosisHelpSectionTitle">信心值</div>
+                <div class="diagnosisHelpText">所獲得的資訊會提升你對顧客需求的信心值（右側進度條）。</div>
+                <div style="height:8px;"></div>
+                <div class="diagnosisHelpText">當信心足夠時，畫面下方會出現【確認診斷】按鈕。</div>
+          
+                <!-- Preview of the real confirm button (visual only) -->
+                <div style="margin-top: 8px; text-align: center;">
+                  <button id="btnConfirmDiagnosisPreview" style="min-width: 200px; padding: 4px 8px; font-size: 16px; background: rgba(255, 255, 255, 0.8); border: 1px solid #ccc; cursor: default;" type="button">確認診斷</button>
+                </div>
+              </div>
+          
+              <div class="diagnosisHelpSection">
+                <div class="diagnosisHelpSectionTitle">提早判斷</div>
+                <div class="diagnosisHelpText">另外，你也可以隨時按【拍板】提早判斷。不過，你的判斷可能有誤，最後給顧客的丹藥可能不適合顧客。</div>
               </div>
             </div>
           </div>
+          
+          
 
           <!-- Action buttons (問/切) above customer -->
           <div id="actionButtons">
@@ -113,7 +121,7 @@
             <div id="questionMenuContent">
               <h3>問診</h3>
               <div id="questionList"></div>
-              <button id="btnCloseMenu">關閉/button>
+              <button id="btnCloseMenu">關閉</button>
             </div>
           </div>
 
