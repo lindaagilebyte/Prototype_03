@@ -23,9 +23,51 @@ let savedPhaseForDebug = 'READY';
 let mqttInboxLatest = null;
 
 // ---- MQTT (shared) ----
-const MQTT_TOPIC = 'thirza/alchemy/v1';
+const MQTT_TOPIC_BASE = 'thirza/alchemy/v1';
+const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
 let mqttClient = null;
 let mqttConnected = false;
+let currentRoomId = null; // Current room ID (4-digit)
+
+// Load room ID from localStorage on init
+function loadRoomId() {
+  const saved = localStorage.getItem('clinic.roomId');
+  if (saved && /^\d{4}$/.test(saved)) {
+    currentRoomId = saved;
+    return saved;
+  }
+  return null;
+}
+
+// Save room ID to localStorage
+function saveRoomId(roomId) {
+  if (roomId && /^\d{4}$/.test(roomId)) {
+    currentRoomId = roomId;
+    localStorage.setItem('clinic.roomId', roomId);
+    return true;
+  } else {
+    currentRoomId = null;
+    localStorage.removeItem('clinic.roomId');
+    return false;
+  }
+}
+
+// Get MQTT topic for publishing (room-specific if room ID exists, otherwise public)
+function getMqttPublishTopic() {
+  if (currentRoomId) {
+    return `${MQTT_TOPIC_BASE}/${currentRoomId}`;
+  }
+  return MQTT_TOPIC_BASE;
+}
+
+// Get MQTT topics for subscribing (both room-specific and public)
+function getMqttSubscribeTopics() {
+  const topics = [MQTT_TOPIC_BASE]; // Always subscribe to public topic
+  if (currentRoomId) {
+    topics.push(`${MQTT_TOPIC_BASE}/${currentRoomId}`);
+  }
+  return topics;
+}
 
 function publishDiagnosisExportData(reason) {
   if (!mqttClient || !mqttConnected) {
@@ -56,8 +98,9 @@ function publishDiagnosisExportData(reason) {
     }
   };
 
-  mqttClient.publish(MQTT_TOPIC, JSON.stringify(exportData));
-  log(`[MQTT] exported diagnosis package: patientName=${customer.name}`);
+  const topic = getMqttPublishTopic();
+  mqttClient.publish(topic, JSON.stringify(exportData));
+  log(`[MQTT] exported diagnosis package to ${topic}: patientName=${customer.name}`);
   return true;
 }
 
@@ -741,25 +784,119 @@ function showHandoffScreen(customer, needsData) {
   const msgEl = document.getElementById('handoffMessage');
   const btnExport = document.getElementById('btnHandoffExport');
   const btnImport = document.getElementById('btnHandoffImport');
+  
+  // Room ID input elements
+  const roomIdInput = document.getElementById('roomIdInput');
+  const btnGenerateLink = document.getElementById('btnGenerateLink');
+  const generatedLinkContainer = document.getElementById('generatedLinkContainer');
+  const generatedLink = document.getElementById('generatedLink');
+  const btnCopyLink = document.getElementById('btnCopyLink');
+  const btnOpenLink = document.getElementById('btnOpenLink');
 
   // Reset UI each time
   if (linkEl) linkEl.style.display = 'none';
   if (msgEl) msgEl.textContent = '';
+  if (generatedLinkContainer) generatedLinkContainer.style.display = 'none';
+  
+  // Load saved room ID into input
+  if (roomIdInput && currentRoomId) {
+    roomIdInput.value = currentRoomId;
+  }
+  
+  // Restrict room ID input to digits only
+  if (roomIdInput) {
+    roomIdInput.addEventListener('input', (e) => {
+      // Only allow digits
+      e.target.value = e.target.value.replace(/\D/g, '');
+      // Limit to 4 digits
+      if (e.target.value.length > 4) {
+        e.target.value = e.target.value.slice(0, 4);
+      }
+    });
+  }
 
   // Debug phase only (saved but ignored on restore)
   savedPhaseForDebug = 'HANDOFF';
   saveRun('phase=HANDOFF');
 
-
+  // Set up Generate Link button
+  if (btnGenerateLink && roomIdInput) {
+    btnGenerateLink.onclick = () => {
+      const roomId = roomIdInput.value.trim();
+      
+      // Validate room ID (must be 4 digits)
+      if (!/^\d{4}$/.test(roomId)) {
+        alert('請輸入 4 位數的房間 ID（例如：8888）');
+        roomIdInput.focus();
+        return;
+      }
+      
+      // Save room ID
+      saveRoomId(roomId);
+      
+      // Update MQTT subscriptions
+      updateMqttSubscriptions();
+      
+      // Generate link
+      const alchemyUrl = `https://thirza0.github.io/ChineseAlchemy_Prototype/?room_id=${roomId}`;
+      
+      if (generatedLink) {
+        generatedLink.href = alchemyUrl;
+        generatedLink.textContent = alchemyUrl;
+      }
+      
+      if (generatedLinkContainer) {
+        generatedLinkContainer.style.display = 'block';
+      }
+      
+      log(`[Room ID] 房間 ID 已設定為: ${roomId}`);
+      log(`[Room ID] 生成的連結: ${alchemyUrl}`);
+    };
+  }
+  
+  // Set up Copy Link button
+  if (btnCopyLink && generatedLink) {
+    btnCopyLink.onclick = () => {
+      const url = generatedLink.href;
+      if (url && url !== '#') {
+        navigator.clipboard.writeText(url).then(() => {
+          log('[Room ID] 連結已複製到剪貼簿');
+          if (msgEl) {
+            const originalMsg = msgEl.textContent;
+            msgEl.textContent = '連結已複製到剪貼簿！';
+            setTimeout(() => {
+              if (msgEl.textContent === '連結已複製到剪貼簿！') {
+                msgEl.textContent = originalMsg;
+              }
+            }, 2000);
+          }
+        }).catch(err => {
+          console.error('Failed to copy link:', err);
+          log('[Room ID] 複製連結失敗');
+        });
+      }
+    };
+  }
+  
+  // Set up Open Link button
+  if (btnOpenLink && generatedLink) {
+    btnOpenLink.onclick = () => {
+      const url = generatedLink.href;
+      if (url && url !== '#') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    };
+  }
 
   btnExport.onclick = () => {
     if (linkEl) linkEl.style.display = 'inline';
   
     const ok = publishDiagnosisExportData('handoffExport');
     if (msgEl) {
+      const roomInfo = currentRoomId ? ` (房間 ID: ${currentRoomId})` : '';
       msgEl.textContent = ok
-        ? 'Link revealed. Diagnosis package sent to MQTT. Go make pills, then come back and press Import pills.'
-        : 'Link revealed. MQTT export failed (not connected). Go make pills, then come back and press Import pills.';
+        ? `診斷資料已發送到 MQTT${roomInfo}。請前往煉丹系統製作丹藥，然後回來按 Import pills。`
+        : 'MQTT 發送失敗（未連線）。請前往煉丹系統製作丹藥，然後回來按 Import pills。';
     }
   };
   
@@ -1272,52 +1409,92 @@ async function initializeApp() {
   log('Simulation initialized. State=NoActiveVisit, toxicity=0, constitution=None.');
   updateStatusAndUI();
 
-// ---- MQTT RECEIVE TEST (TEMPORARY) ----
-const MQTT_TOPIC = 'thirza/alchemy/v1';
-const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+  // Initialize MQTT connection
+  initializeMqtt();
+}
 
-client.on('connect', () => {
-  console.log('[MQTT] connected, subscribing:', MQTT_TOPIC);
-  client.subscribe(MQTT_TOPIC);
-  mqttClient = client;
-  mqttConnected = true;
-  client.publish(
-    MQTT_TOPIC,
-    JSON.stringify({
-      source: 'clinic',
-      test: true,
-      message: 'hello from clinic'
-    })
-  );
-  log('[MQTT] sent test message (source=clinic)');
+// ---- MQTT Connection ----
+function initializeMqtt() {
+  // Load saved room ID
+  loadRoomId();
   
-});
+  const client = mqtt.connect(MQTT_BROKER);
 
-client.on('message', (topic, msg) => {
-  console.log('[MQTT] raw message:', topic, msg.toString());
-  try {
-    const data = JSON.parse(msg.toString());
-    console.log('[MQTT] parsed JSON:', data);
-
-    // accept only real alchemy result packages
-    if (data?.source !== 'AlchemySystem' || !Array.isArray(data?.medicines)) {
-      log('[MQTT] ignored (not an alchemy package)');
-      return;
-    }
-
-    mqttInboxLatest = data;
-    log(
-      `[MQTT] stored alchemy package: patientName=${data.patientName ?? '(missing)'} medicines=${data.medicines.length}`
+  client.on('connect', () => {
+    const topics = getMqttSubscribeTopics();
+    console.log('[MQTT] connected, subscribing to topics:', topics);
+    
+    // Subscribe to all relevant topics
+    topics.forEach(topic => {
+      client.subscribe(topic);
+    });
+    
+    mqttClient = client;
+    mqttConnected = true;
+    
+    // Send test message to public topic only
+    client.publish(
+      MQTT_TOPIC_BASE,
+      JSON.stringify({
+        source: 'clinic',
+        test: true,
+        message: 'hello from clinic'
+      })
     );
+    log(`[MQTT] connected and subscribed to: ${topics.join(', ')}`);
+  });
 
-  } catch (e) {
-    console.log('[MQTT] JSON parse failed:', e);
+  client.on('message', (topic, msg) => {
+    console.log('[MQTT] raw message from topic:', topic, msg.toString());
+    try {
+      const data = JSON.parse(msg.toString());
+      console.log('[MQTT] parsed JSON:', data);
+
+      // accept only real alchemy result packages
+      if (data?.source !== 'AlchemySystem' || !Array.isArray(data?.medicines)) {
+        log('[MQTT] ignored (not an alchemy package)');
+        return;
+      }
+
+      mqttInboxLatest = data;
+      log(
+        `[MQTT] stored alchemy package from ${topic}: patientName=${data.patientName ?? '(missing)'} medicines=${data.medicines.length}`
+      );
+
+    } catch (e) {
+      console.log('[MQTT] JSON parse failed:', e);
+    }
+  });
+
+  client.on('error', (error) => {
+    console.error('[MQTT] connection error:', error);
+    log(`[MQTT] connection error: ${error.message}`);
+    mqttConnected = false;
+  });
+
+  client.on('offline', () => {
+    console.log('[MQTT] client offline');
+    log('[MQTT] client offline');
+    mqttConnected = false;
+  });
+}
+
+// Function to update MQTT subscriptions when room ID changes
+function updateMqttSubscriptions() {
+  if (!mqttClient || !mqttConnected) {
+    return;
   }
-});
-
-// ---- END MQTT RECEIVE TEST ----
-
   
+  const topics = getMqttSubscribeTopics();
+  console.log('[MQTT] updating subscriptions to:', topics);
+  
+  // Unsubscribe from all topics first (we'll resubscribe to what we need)
+  // Note: In practice, we keep both public and room-specific subscriptions
+  topics.forEach(topic => {
+    mqttClient.subscribe(topic);
+  });
+  
+  log(`[MQTT] updated subscriptions to: ${topics.join(', ')}`);
 }
 
 // Start the app

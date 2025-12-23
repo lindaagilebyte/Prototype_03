@@ -173,6 +173,37 @@
             <div id="handoffContent">
               <p>下一步會進入 煉丹系統</p>
               <p>請先匯出問診結果，供外部煉丹Prototype使用。</p>
+              
+              <!-- Room ID Input Section -->
+              <div style="margin-top: 16px; padding: 12px; background: #2a2a2a; border-radius: 4px;">
+                <label for="roomIdInput" style="display: block; margin-bottom: 8px; font-weight: 600;">房間 ID (4位數)：</label>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <input
+                    type="text"
+                    id="roomIdInput"
+                    placeholder="例如：8888"
+                    maxlength="4"
+                    pattern="[0-9]{4}"
+                    style="flex: 1; min-width: 120px; padding: 6px 10px; background: #1a1a1a; border: 1px solid #555; border-radius: 3px; color: #fff; font-size: 14px;"
+                  />
+                  <button id="btnGenerateLink" style="padding: 6px 12px; background: #4a9eff; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;">生成連結</button>
+                </div>
+                <div id="generatedLinkContainer" style="margin-top: 12px; display: none;">
+                  <div style="margin-bottom: 8px; font-weight: 600;">生成的連結：</div>
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <a
+                      id="generatedLink"
+                      href="#"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="flex: 1; min-width: 200px; padding: 6px 10px; background: #1a1a1a; border: 1px solid #555; border-radius: 3px; color: #4a9eff; text-decoration: none; word-break: break-all; font-size: 12px;"
+                    ></a>
+                    <button id="btnCopyLink" style="padding: 6px 12px; background: #666; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;">複製</button>
+                    <button id="btnOpenLink" style="padding: 6px 12px; background: #4a9eff; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;">開啟</button>
+                  </div>
+                </div>
+              </div>
+              
               <p style="margin-top: 16px;">
                 外部煉丹Prototype：
                 <br>
