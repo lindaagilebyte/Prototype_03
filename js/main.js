@@ -1455,21 +1455,23 @@ function initializeMqtt() {
       const data = JSON.parse(msg.toString());
       console.log('[MQTT] parsed JSON:', data);
       log(`[MQTT] parsed message - source: ${data?.source}, has medicines: ${Array.isArray(data?.medicines)}`);
+      log(`[MQTT] full message structure: ${JSON.stringify(data, null, 2)}`);
 
-      // accept only real alchemy result packages
-      if (data?.source !== 'AlchemySystem') {
-        log(`[MQTT] ignored - source is '${data?.source}', expected 'AlchemySystem'`);
-        return;
-      }
+      // Check if this looks like an alchemy result package
+      // Accept messages that have medicines array, regardless of source field
+      // (alchemy system might not include source field)
+      const hasMedicines = Array.isArray(data?.medicines);
+      const hasPatientName = data?.patientName || data?.patient_name;
       
-      if (!Array.isArray(data?.medicines)) {
-        log(`[MQTT] ignored - medicines is not an array (type: ${typeof data?.medicines})`);
+      if (!hasMedicines) {
+        log(`[MQTT] ignored - no medicines array found. Message keys: ${Object.keys(data).join(', ')}`);
         return;
       }
 
+      // Store the package (accept it even without source field)
       mqttInboxLatest = data;
       log(
-        `[MQTT] ✓ stored alchemy package from ${topic}: patientName=${data.patientName ?? '(missing)'} medicines=${data.medicines.length}`
+        `[MQTT] ✓ stored alchemy package from ${topic}: patientName=${hasPatientName || '(missing)'} medicines=${data.medicines.length}`
       );
 
     } catch (e) {
