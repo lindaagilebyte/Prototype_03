@@ -286,9 +286,10 @@ h1 {
 }
 
 .needSelectionItem {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 140px 140px; /* name | 主需求 | 次需求 */
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   padding: 10px;
   margin-bottom: 10px;
   background: #1a1a1a;
@@ -296,19 +297,74 @@ h1 {
   border-radius: 4px;
 }
 
-.needSelectionItem label {
-  flex: 1;
+/* Need name: non-clickable informational cell */
+.needNameCell {
   font-size: 14px;
   color: #ddd;
+  padding: 10px 12px;
 }
 
-.needSelectionItem input[type="radio"] {
-  margin-right: 5px;
+/* Full-width clickable strips */
+.needMainStrip,
+.needSecondaryStrip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  width: 100%;
+  padding: 10px 12px;
+  box-sizing: border-box;
+
+  background: #202020;
+  border: 1px solid #444;
+  border-radius: 4px;
+
+  cursor: pointer;
+  user-select: none;
 }
 
-.needSelectionItem input[type="checkbox"] {
-  margin-right: 5px;
+/* Keep inputs visually aligned */
+.needMainStrip input[type="radio"],
+.needSecondaryStrip input[type="checkbox"] {
+  margin: 0;
 }
+
+/* Optional hover feedback (helps discoverability) */
+.needMainStrip:hover,
+.needSecondaryStrip:hover {
+  background: #262626;
+}
+
+/* Optional selected feedback (small, safe) */
+.needMainStrip input[type="radio"]:checked + span,
+.needSecondaryStrip input[type="checkbox"]:checked + span {
+  font-weight: 700;
+}
+
+/* --- Compact diagnosis selection rows --- */
+
+/* Keep grid, but tighter columns and spacing */
+.needSelectionItem{
+  grid-template-columns: 1fr 120px 120px; /* was wider; adjust if needed */
+  gap: 8px;             /* was larger */
+  padding: 6px 8px;     /* was larger */
+  margin-bottom: 8px;   /* was larger */
+}
+
+/* Tighten the name cell */
+.needNameCell{
+  padding: 6px 8px;     /* was larger */
+}
+
+/* Tighten the clickable strips */
+.needMainStrip,
+.needSecondaryStrip{
+  padding: 6px 8px;     /* was larger */
+  gap: 8px;             /* was larger */
+  border-radius: 4px;   /* keep consistent */
+}
+
 
 #toxicityDisplayArea {
   padding: 12px;
@@ -591,13 +647,13 @@ h1 {
   font-size: 40px !important;
   font-weight: bold !important;
   line-height: 1 !important;
-  background: #2a4858 !important;
-  color: #fff !important;
-  border: 3px solid #1a2838 !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid #ccc !important;
+  color: #111 !important;
   cursor: pointer !important;
   z-index: 10050 !important;
   pointer-events: auto !important;
-  box-shadow: 0 6px 12px rgba(0,0,0,0.5) !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4) !important;
 }
 
 .diagnosisHelpButton:disabled {

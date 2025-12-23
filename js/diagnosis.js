@@ -900,10 +900,12 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
     const item = document.createElement('div');
     item.className = 'needSelectionItem';
     
-    const label = document.createElement('label');
-    label.textContent = `${need.label}`;
-    label.style.flex = '1';
+    // 1) Need name (NON-clickable)
+    const nameCell = document.createElement('div');
+    nameCell.className = 'needNameCell';
+    nameCell.textContent = `${need.label}`;
     
+    // 2) Main (full-width clickable strip via <label>)
     const mainRadio = document.createElement('input');
     mainRadio.type = 'radio';
     mainRadio.name = 'mainNeed';
@@ -914,11 +916,17 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
       mainRadio.checked = true;
     }
     
-    const mainLabel = document.createElement('label');
-    mainLabel.htmlFor = `main_${need.code}`;
-    mainLabel.textContent = '主需求';
-    mainLabel.style.marginRight = '15px';
+    const mainStrip = document.createElement('label');
+    mainStrip.className = 'needMainStrip';
+    mainStrip.htmlFor = `main_${need.code}`;
     
+    // Put the input inside the strip too (keeps visuals and ensures clicking the strip works everywhere)
+    mainStrip.appendChild(mainRadio);
+    const mainText = document.createElement('span');
+    mainText.textContent = '主需求';
+    mainStrip.appendChild(mainText);
+    
+    // 3) Secondary (full-width clickable strip via <label>)
     const secondaryCheck = document.createElement('input');
     secondaryCheck.type = 'checkbox';
     secondaryCheck.value = need.code;
@@ -928,11 +936,16 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
       secondaryCheck.checked = true;
     }
     
-    const secondaryLabel = document.createElement('label');
-    secondaryLabel.htmlFor = `secondary_${need.code}`;
-    secondaryLabel.textContent = '次需求';
+    const secondaryStrip = document.createElement('label');
+    secondaryStrip.className = 'needSecondaryStrip';
+    secondaryStrip.htmlFor = `secondary_${need.code}`;
     
-    // Handle radio change: uncheck secondary if main is selected
+    secondaryStrip.appendChild(secondaryCheck);
+    const secondaryText = document.createElement('span');
+    secondaryText.textContent = '次需求';
+    secondaryStrip.appendChild(secondaryText);
+    
+    // Mutual exclusion logic (same as before)
     mainRadio.addEventListener('change', () => {
       if (mainRadio.checked) {
         secondaryCheck.checked = false;
@@ -940,7 +953,6 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
       }
     });
     
-    // Handle checkbox change: uncheck main if secondary is selected
     secondaryCheck.addEventListener('change', () => {
       if (secondaryCheck.checked) {
         mainRadio.checked = false;
@@ -948,12 +960,11 @@ function showDiagnosisSelectionUI(customer, needsData, onComplete) {
       updateConfirmButton();
     });
     
-    item.appendChild(label);
-    item.appendChild(mainRadio);
-    item.appendChild(mainLabel);
-    item.appendChild(secondaryCheck);
-    item.appendChild(secondaryLabel);
-    needsArea.appendChild(item);
+    // Assemble row: name | main strip | secondary strip
+    item.appendChild(nameCell);
+    item.appendChild(mainStrip);
+    item.appendChild(secondaryStrip);
+    needsArea.appendChild(item);    
   });
   
   // Display toxicity
