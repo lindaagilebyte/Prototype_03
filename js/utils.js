@@ -154,7 +154,7 @@ export async function loadCluesData() {
     return [];
   }
 }
-const namePool = [
+export const namePool = [
   "李玄真", "王守一", "張子虛", "陳養和", "周清遠", "劉觀明",
   "趙靜修", "黃元和", "吳養生", "徐太和", "沈抱樸", "何存真",
 
