@@ -1449,17 +1449,18 @@ function initializeMqtt() {
 
   client.on('message', (topic, msg) => {
     console.log('[MQTT] raw message from topic:', topic, msg.toString());
-    log(`[MQTT] received message on topic: ${topic}`);
     
     try {
       const data = JSON.parse(msg.toString());
       console.log('[MQTT] parsed JSON:', data);
-      log(`[MQTT] parsed message - source: ${data?.source}, has medicines: ${Array.isArray(data?.medicines)}`);
-      log(`[MQTT] full message structure: ${JSON.stringify(data, null, 2)}`);
 
-      // Check if this looks like an alchemy result package
+      // Silently ignore diagnosis messages (the ones we sent ourselves)
+      if (data?.diagnosis) {
+        return;
+      }
+
+      // Check if this looks like an alchemy result package (pills)
       // Accept messages that have medicines array, regardless of source field
-      // (alchemy system might not include source field)
       const hasMedicines = Array.isArray(data?.medicines);
       const hasPatientName = data?.patientName || data?.patient_name;
       
@@ -1467,6 +1468,8 @@ function initializeMqtt() {
         log(`[MQTT] ignored - no medicines array found. Message keys: ${Object.keys(data).join(', ')}`);
         return;
       }
+      
+      log(`[MQTT] received pills message on topic: ${topic}`);
 
       // Store the package (accept it even without source field)
       mqttInboxLatest = data;
