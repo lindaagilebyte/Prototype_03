@@ -99,8 +99,8 @@ function publishDiagnosisExportData(reason) {
   };
 
   const topic = getMqttPublishTopic();
-  mqttClient.publish(topic, JSON.stringify(exportData));
-  log(`[MQTT] exported diagnosis package to ${topic}: patientName=${customer.name}`);
+  mqttClient.publish(topic, JSON.stringify(exportData), { retain: true });
+  log(`[MQTT] exported diagnosis package to ${topic} (retained): patientName=${customer.name}`);
   return true;
 }
 
