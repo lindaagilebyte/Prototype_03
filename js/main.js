@@ -22,6 +22,46 @@ let savedPhaseForDebug = 'READY';
 // In-memory inbox: last received package (discarded on restore/reset)
 let mqttInboxLatest = null;
 
+// ---- MQTT (shared) ----
+const MQTT_TOPIC = 'thirza/alchemy/v1';
+let mqttClient = null;
+let mqttConnected = false;
+
+function publishDiagnosisExportData(reason) {
+  if (!mqttClient || !mqttConnected) {
+    log('[MQTT] ERROR: not connected; export skipped.');
+    return false;
+  }
+  if (!customer?.name) {
+    log('[MQTT] ERROR: no active customer name; export skipped.');
+    return false;
+  }
+  if (!currentDiagnosis?.truth || !currentDiagnosis?.diagnosed) {
+    log('[MQTT] ERROR: no diagnosis data available; export skipped.');
+    return false;
+  }
+
+  // EXACTLY match diagnosis.js exportData shape
+  const exportData = {
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    diagnosis: {
+      truth: currentDiagnosis.truth,
+      diagnosed: {
+        customerName: customer.name,
+        constitution: currentDiagnosis.diagnosed.constitution,
+        needs: currentDiagnosis.diagnosed.needs,
+        toxicity: currentDiagnosis.diagnosed.toxicity
+      }
+    }
+  };
+
+  mqttClient.publish(MQTT_TOPIC, JSON.stringify(exportData));
+  log(`[MQTT] exported diagnosis package: patientName=${customer.name}`);
+  return true;
+}
+
+
 function getCheckpoint() {
   // In your code, "customer exists" is effectively: customer.name !== null
   return (customer.name === null) ? 'NO_CUSTOMER' : 'HAS_CUSTOMER';
@@ -714,8 +754,15 @@ function showHandoffScreen(customer, needsData) {
 
   btnExport.onclick = () => {
     if (linkEl) linkEl.style.display = 'inline';
-    if (msgEl) msgEl.textContent = 'Link revealed. Go make pills, then come back and press Import pills.';
+  
+    const ok = publishDiagnosisExportData('handoffExport');
+    if (msgEl) {
+      msgEl.textContent = ok
+        ? 'Link revealed. Diagnosis package sent to MQTT. Go make pills, then come back and press Import pills.'
+        : 'Link revealed. MQTT export failed (not connected). Go make pills, then come back and press Import pills.';
+    }
   };
+  
 
   btnImport.onclick = () => {
     if (!mqttInboxLatest) {
@@ -1232,6 +1279,8 @@ const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 client.on('connect', () => {
   console.log('[MQTT] connected, subscribing:', MQTT_TOPIC);
   client.subscribe(MQTT_TOPIC);
+  mqttClient = client;
+  mqttConnected = true;
   client.publish(
     MQTT_TOPIC,
     JSON.stringify({
