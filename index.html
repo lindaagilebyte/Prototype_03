@@ -13,11 +13,62 @@
   <!-- Admin-only reset button (separate row + color) -->
   <div class="admin-row">
     <button id="btnReset">重新產生顧客（管理用）</button>
+  
+    <!-- Admin: re-open alchemy prototype tab (only shown when roomId is valid) -->
+    <button id="btnAdminOpenAlchemy" style="display:none;">重新開啟煉丹Prototype</button>
+  </div>
+  
+  <!-- Start Screen (must complete before entering play) -->
+  <div id="startScreen">
+    <div class="startCard">
+      <h2 class="startTitle">開始前設定</h2>
+
+      <!-- Start State A: before opening alchemy prototype -->
+      <div id="startStateA">
+        <div class="startText">
+          此Prototype需要先開啟煉丹Prototype分頁。
+          <ul>
+            <li>點擊【確認並開啟煉丹Prototype】後，瀏覽器可能會自動切換到新分頁</li>
+            <li>請不要關閉煉丹Prototype分頁</li>
+            <li>新分頁開啟後，請立刻切回此分頁繼續</li>
+          </ul>
+        </div>
+
+        <div class="startRow">
+          <label class="startLabel" for="startRoomIdInput">房間ID（4位數）</label>
+          <input
+            id="startRoomIdInput"
+            type="text"
+            inputmode="numeric"
+            maxlength="4"
+            placeholder="例如：8888"
+          >
+          <button id="btnStartConfirm">確認並開啟煉丹Prototype</button>
+        </div>
+      </div>
+
+      <!-- Start State B: after opening alchemy prototype -->
+      <div id="startStateB" style="display:none;">
+        <div class="startText">
+          遊玩期間請保持煉丹Prototype分頁開啟。
+          <ul>
+            <li>若不小心關閉，可使用頁面上方的【重新開啟煉丹Prototype】</li>
+          </ul>
+        </div>
+
+        <div class="startRow" style="justify-content:center;">
+          <button id="btnStartProceed">進入問診系統Prototype開始遊玩</button>
+        </div>
+      </div>
+
+    </div>
   </div>
 
-  <!-- Main row: game screen on the left, log on the right -->
-  <div class="main-row">
+  <!-- Main app (hidden until start gate is completed) -->
+  <div id="appMain" class="main-row" style="display:none;">
 
+  <!-- Main row: game screen on the left, log on the right -->
+  
     <!-- LEFT: game screen -->
     <div>
       <div id="gameScreen">
@@ -223,37 +274,6 @@
             <h3>問診流程已結束</h3>
             <div id="handoffContent">
               <p>下一步會進入 煉丹系統</p>
-              <p>請先匯出問診結果，供外部煉丹Prototype使用。</p>
-              
-              <!-- Room ID Input Section -->
-              <div style="margin-top: 16px; padding: 12px; background: #2a2a2a; border-radius: 4px;">
-                <label for="roomIdInput" style="display: block; margin-bottom: 8px; font-weight: 600;">房間 ID (4位數)：</label>
-                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                  <input
-                    type="text"
-                    id="roomIdInput"
-                    placeholder="例如：8888"
-                    maxlength="4"
-                    pattern="[0-9]{4}"
-                    style="flex: 1; min-width: 120px; padding: 6px 10px; background: #1a1a1a; border: 1px solid #555; border-radius: 3px; color: #fff; font-size: 14px;"
-                  />
-                  <button id="btnGenerateLink" style="padding: 6px 12px; background: #4a9eff; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;">生成連結</button>
-                </div>
-                <div id="generatedLinkContainer" style="margin-top: 12px; display: none;">
-                  <div style="margin-bottom: 8px; font-weight: 600;">生成的連結：</div>
-                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <a
-                      id="generatedLink"
-                      href="#"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style="flex: 1; min-width: 200px; padding: 6px 10px; background: #1a1a1a; border: 1px solid #555; border-radius: 3px; color: #4a9eff; text-decoration: none; word-break: break-all; font-size: 12px;"
-                    ></a>
-                    <button id="btnCopyLink" style="padding: 6px 12px; background: #666; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;">複製</button>
-                    <button id="btnOpenLink" style="padding: 6px 12px; background: #4a9eff; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-size: 14px;">開啟</button>
-                  </div>
-                </div>
-              </div>
               
               <p style="margin-top: 16px;">
                 外部煉丹Prototype：

@@ -23,6 +23,17 @@ h1 {
   padding: 4px 10px;
   cursor: pointer;
 }
+#btnAdminOpenAlchemy {
+  background: #eee;
+  border: 1px solid #666;
+  color: #111;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+#btnAdminOpenAlchemy:hover {
+  background: #e0e0e0;
+}
 
 .main-row {
   display: flex;
@@ -1270,4 +1281,94 @@ h1 {
   min-width: 0 !important;
   max-width: none !important;
   box-sizing: border-box !important;
+}
+
+/* Start Screen */
+#startScreen {
+  padding: 16px;
+}
+
+.startCard {
+  max-width: 720px;
+  margin: 20px auto;
+  padding: 18px;
+  border-radius: 10px;
+  background: #1f1f1f;
+  border: 1px solid #3a3a3a;
+}
+
+.startTitle {
+  margin: 0 0 12px 0;
+  font-size: 22px;
+  color: #fff;
+}
+
+.startText {
+  margin: 0 0 14px 0;
+  line-height: 1.5;
+  color: #e6e6e6;
+}
+
+.startRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.startLabel {
+  min-width: 140px;
+  font-weight: 600;
+  color: #e6e6e6;
+}
+
+#startRoomIdInput {
+  width: 140px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background: #111;
+  color: #fff;
+  font-size: 16px;
+}
+
+#btnStartConfirm,
+#btnStartProceed {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #666;
+  background: #2b2b2b;
+  color: #fff;
+  cursor: pointer;
+}
+
+#btnStartConfirm:hover,
+#btnStartProceed:hover {
+  background: #353535;
+}
+/* Start screen – primary proceed action */
+#btnStartProceed {
+  display: block;
+
+  /* Make it unmistakably primary */
+  min-width: 420px;
+  padding: 18px 28px;
+
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+
+  background: #2b2b2b;
+  color: #fff;
+  border: 1px solid #777;
+  border-radius: 10px;
+
+  cursor: pointer;
+}
+
+/* Strong but restrained hover feedback */
+#btnStartProceed:hover {
+  background: #333;
+  border-color: #aaa;
 }

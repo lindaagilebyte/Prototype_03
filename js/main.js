@@ -38,6 +38,7 @@ function loadRoomId() {
   }
   return null;
 }
+loadRoomId();
 
 // Save room ID to localStorage
 function saveRoomId(roomId) {
@@ -51,6 +52,117 @@ function saveRoomId(roomId) {
     return false;
   }
 }
+// --- Start Screen Gate (separate from VisitState) ---
+function getAlchemyUrl(roomId) {
+  return `https://thirza0.github.io/ChineseAlchemy_Prototype/?room_id=${roomId}`;
+}
+
+function isValidRoomId(roomId) {
+  return !!roomId && /^\d{4}$/.test(roomId);
+}
+
+function showAdminOpenAlchemyButtonIfReady() {
+  const btn = document.getElementById('btnAdminOpenAlchemy');
+  if (!btn) return;
+
+  if (isValidRoomId(currentRoomId)) {
+    btn.style.display = 'inline-block';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function bindAdminOpenAlchemyButton() {
+  const btn = document.getElementById('btnAdminOpenAlchemy');
+  if (!btn) return;
+
+  btn.onclick = () => {
+    if (!isValidRoomId(currentRoomId)) return;
+    const url = getAlchemyUrl(currentRoomId);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    log(`[StartGate] Admin opened alchemy tab: ${url}`);
+  };
+}
+
+function bindStartScreenGate() {
+  const startScreen = document.getElementById('startScreen');
+  const appMain = document.getElementById('appMain');
+  const input = document.getElementById('startRoomIdInput');
+  const btnConfirm = document.getElementById('btnStartConfirm');
+  const btnProceed = document.getElementById('btnStartProceed');
+  const stateA = document.getElementById('startStateA');
+  const stateB = document.getElementById('startStateB');
+  
+
+  if (!startScreen || !appMain || !input || !btnConfirm || !btnProceed || !stateA || !stateB) {
+    // If the DOM is missing, don't block the prototype (fail open)
+    return;
+  }
+  
+
+  // Normalize input to digits, max 4 (same behavior as current handoff)
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/\D/g, '').slice(0, 4);
+  });
+
+  // If we already have a valid saved roomId, skip start screen
+  if (isValidRoomId(currentRoomId)) {
+    startScreen.style.display = 'none';
+    appMain.style.display = 'flex';
+    showAdminOpenAlchemyButtonIfReady();
+    return;
+  }
+
+  // Otherwise: enforce start screen
+  startScreen.style.display = 'block';
+  appMain.style.display = 'none';
+  
+  stateA.style.display = 'block';
+  stateB.style.display = 'none';
+  
+
+  btnConfirm.onclick = () => {
+    const roomId = input.value.trim();
+    if (!isValidRoomId(roomId)) {
+      alert('房間 ID 必須是 4 位數字。');
+      return;
+    }
+
+    // Persist + update subscriptions (same as before)
+    saveRoomId(roomId);
+    updateMqttSubscriptions();
+    showAdminOpenAlchemyButtonIfReady();
+
+    const url = getAlchemyUrl(roomId);
+
+    // Open the external prototype. Avoid 'noopener' here because it can cause window.open to return null
+    // even when the tab actually opens.
+    const w = window.open(url, '_blank');
+    
+    // If blocked, w will be null. Still allow the user to proceed, but show a message.
+    if (!w) {
+      alert('瀏覽器可能阻擋了新分頁開啟。請手動開啟外部煉丹Prototype，或使用上方「重新開啟煉丹Prototype（管理用）」按鈕。');
+    } else {
+      // Prevent the new tab from having access to this tab (noopener behavior without breaking return value logic)
+      try { w.opener = null; } catch (e) {}
+    }
+    
+    // Unlock proceed + swap instructions
+    stateA.style.display = 'none';
+    stateB.style.display = 'block';
+    
+    
+
+    log(`[StartGate] Room ID set: ${roomId}`);
+    log(`[StartGate] Opened alchemy tab: ${url}`);
+  };
+
+  btnProceed.onclick = () => {
+    startScreen.style.display = 'none';
+    appMain.style.display = 'flex';
+  };
+}
+
 
 // Get MQTT topic for publishing (room-specific if room ID exists, otherwise public)
 function getMqttPublishTopic() {
@@ -367,6 +479,9 @@ ui.btnReset.onclick = () => {
   updateStatusAndUI();
   saveRun('btnReset');
 };
+bindAdminOpenAlchemyButton();
+showAdminOpenAlchemyButtonIfReady();
+bindStartScreenGate();
 
 ui.btnSpawn.onclick = () => {
   if (!customer.alive) return;
