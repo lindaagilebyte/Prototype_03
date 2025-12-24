@@ -895,10 +895,13 @@ function showHandoffScreen(customer, needsData) {
   
   // Set up Proceed button
   // Set up Export / Import
-  const linkEl = document.getElementById('alchemyPrototypeLink');
   const msgEl = document.getElementById('handoffMessage');
   const btnExport = document.getElementById('btnHandoffExport');
   const btnImport = document.getElementById('btnHandoffImport');
+  if (btnImport) btnImport.classList.remove('handoffNext');
+  if (btnExport) btnExport.classList.remove('handoffRetry');
+  if (btnImport) btnImport.style.display = 'none';
+
   
   // Room ID input elements
   const roomIdInput = document.getElementById('roomIdInput');
@@ -909,7 +912,6 @@ function showHandoffScreen(customer, needsData) {
   const btnOpenLink = document.getElementById('btnOpenLink');
 
   // Reset UI each time
-  if (linkEl) linkEl.style.display = 'none';
   if (msgEl) msgEl.textContent = '';
   if (generatedLinkContainer) generatedLinkContainer.style.display = 'none';
   
@@ -1004,7 +1006,6 @@ function showHandoffScreen(customer, needsData) {
   }
 
   btnExport.onclick = () => {
-    if (linkEl) linkEl.style.display = 'inline';
   
     const ok = publishDiagnosisExportData('handoffExport');
     if (msgEl) {
@@ -1012,7 +1013,10 @@ function showHandoffScreen(customer, needsData) {
       msgEl.textContent = ok
         ? `診斷資料已發送到 MQTT${roomInfo}。請前往煉丹系統製作丹藥，然後回來按 Import pills。`
         : 'MQTT 發送失敗（未連線）。請前往煉丹系統製作丹藥，然後回來按 Import pills。';
+      if (btnImport) btnImport.classList.add('handoffNext');
+      if (btnExport) btnExport.classList.add('handoffRetry');
     }
+    if (btnImport) btnImport.style.display = 'inline-block';
   };
   
 

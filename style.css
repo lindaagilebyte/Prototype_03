@@ -512,15 +512,23 @@ h1 {
 }
 
 /* Handoff Screen */
+/* Handoff Screen */
 #handoffScreen {
-  background: #222;
-  padding: 30px;
-  border: 2px solid #888;
-  color: #eee;
-  min-width: 500px;
-  max-width: 700px;
+  background: #2b2b2b;
+  border: 1px solid #999;
+  padding: 24px 32px;
+  max-width: 640px;
+  width: 80%;
+  color: white;
   display: none;
-  z-index: 30001 !important;
+  min-height: 260px;      
+  box-sizing: border-box;
+}
+/* Handoff: emphasize Import pills via layout, not transform */
+#btnHandoffImport.handoffNext {
+  min-width: 160px;      /* larger hit target */
+  padding: 10px 20px;    /* larger without affecting neighbors */
+  font-size: 16px;       /* slightly stronger text */
 }
 
 #handoffScreen h3 {
@@ -551,6 +559,12 @@ h1 {
 
 #handoffContent li {
   margin: 8px 0;
+}
+#handoffMessage {
+  min-height: 44px;       /* reserve space so layout does not jump */
+  margin-top: 12px;
+  text-align: center;
+  display: block;
 }
 
 #btnHandoffProceed {
