@@ -872,11 +872,14 @@ function showDiagnosisResultPopup(customer, needsData, onComplete) {
     };
     setAlchemyLinkPayload(exportData);
   
-  // Set up Export button handler
+  // Set up Export button handler (optional: button may not exist)
   const btnExport = document.getElementById('btnDiagnosisResultExport');
-  btnExport.onclick = () => {
-    exportDiagnosisData(truthState, diagnosedState);
-  };
+  if (btnExport) {
+    btnExport.onclick = () => {
+      exportDiagnosisData(truthState, diagnosedState);
+    };
+  }
+
   
   // Set up OK button handler
   const btnOk = document.getElementById('btnDiagnosisResultOk');
@@ -884,7 +887,8 @@ function showDiagnosisResultPopup(customer, needsData, onComplete) {
     popupOverlay.style.display = 'none';
     resultPopup.style.display = 'none';
     btnOk.onclick = null;
-    btnExport.onclick = null;
+    if (btnExport) btnExport.onclick = null;
+
     
     // Re-enable clue buttons
     clueButtons.forEach(btn => {
