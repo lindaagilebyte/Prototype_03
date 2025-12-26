@@ -1050,7 +1050,12 @@ function showHandoffScreen(customer, needsData) {
       const name = escapeHtml(m.name);
       const element = escapeHtml(m.element);
       const quality = escapeHtml(m.quality);
-      const effects = Array.isArray(m.effectCodes) ? m.effectCodes.join(',') : '';
+      const effects = Array.isArray(m.effectCodes)
+      ? m.effectCodes
+          .map((code) => (needsData.find((n) => n.code === code)?.label ?? code))
+          .join('、')
+      : '';
+
 
       return `
         <tr>
