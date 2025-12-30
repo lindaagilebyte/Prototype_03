@@ -21,6 +21,7 @@ let savedPhaseForDebug = 'READY';
 
 // In-memory inbox: last received package (discarded on restore/reset)
 let mqttInboxLatest = null;
+let playerLevelLatest = null;
 
 // ---- MQTT (shared) ----
 const MQTT_TOPIC_BASE = 'thirza/alchemy/v1';
@@ -1123,7 +1124,7 @@ function showHandoffScreen(customer, needsData) {
         };
       });
 
-      // Prevent double-apply (your requirement)
+      // Prevent double-apply
       mqttInboxLatest = null;
 
       // Hide handoff screen; next UI is death popup or post-alchemy screen (both use overlay)
@@ -1533,6 +1534,16 @@ async function initializeApp() {
     log('WARNING: No recipes loaded from recipes_from_datajs.csv. Check if file exists and is properly formatted.');
   }
   restoreFromSave();
+  const savedLevel = localStorage.getItem('playerLevelLatest');
+
+  if (savedLevel !== null) {
+    playerLevelLatest = Number(savedLevel) || 1;
+  } else {
+    playerLevelLatest = 1;
+    log('[Level] No saved player level found. Defaulting to level 1.');
+  }
+  
+
   log('Simulation initialized. State=NoActiveVisit, toxicity=0, constitution=None.');
   updateStatusAndUI();
 
@@ -1573,39 +1584,45 @@ function initializeMqtt() {
 
   client.on('message', (topic, msg) => {
     console.log('[MQTT] raw message from topic:', topic, msg.toString());
-    
+  
     try {
       const data = JSON.parse(msg.toString());
       console.log('[MQTT] parsed JSON:', data);
-
+  
+      // --- Player level sync (log only) ---
+      if (data?.type === "PLAYER_LEVEL_SYNC") {
+        log(`[MQTT] PLAYER_LEVEL_SYNC level=${data.level} exp=${data.exp}/${data.maxExp} roomId=${data.roomId} topic=${topic}`);
+        console.log('[MQTT] PLAYER_LEVEL_SYNC:', data);
+        playerLevelLatest = Number(data.level) || 0;
+        localStorage.setItem('playerLevelLatest', String(playerLevelLatest));
+        return;
+      }
+  
       // Silently ignore diagnosis messages (the ones we sent ourselves)
       if (data?.diagnosis) {
         return;
       }
-
+  
       // Check if this looks like an alchemy result package (pills)
-      // Accept messages that have medicines array, regardless of source field
       const hasMedicines = Array.isArray(data?.medicines);
       const hasPatientName = data?.patientName || data?.patient_name;
-      
+  
       if (!hasMedicines) {
         log(`[MQTT] ignored - no medicines array found. Message keys: ${Object.keys(data).join(', ')}`);
         return;
       }
-      
+  
       log(`[MQTT] received pills message on topic: ${topic}`);
-
-      // Store the package (accept it even without source field)
+  
+      // Store the package
       mqttInboxLatest = data;
-      log(
-        `[MQTT] ✓ stored alchemy package from ${topic}: patientName=${hasPatientName || '(missing)'} medicines=${data.medicines.length}`
-      );
-
+      log(`[MQTT] ✓ stored alchemy package from ${topic}: patientName=${hasPatientName || '(missing)'} medicines=${data.medicines.length}`);
     } catch (e) {
       console.log('[MQTT] JSON parse failed:', e);
       log(`[MQTT] JSON parse failed: ${e.message}`);
     }
   });
+  
 
   client.on('error', (error) => {
     console.error('[MQTT] connection error:', error);
