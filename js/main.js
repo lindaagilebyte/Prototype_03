@@ -413,11 +413,74 @@ function updateGameScreenControls() {
       // Hide button while greeting is showing
       UI.showOnlyButton(ui, null);
     } else if (currentDiagnosis === null) {
-      UI.showOnlyButton(ui, 'btnDiagnose');
+      UI.showOnlyButton(ui, SKIP_DIAGNOSIS ? null : 'btnDiagnose');
     } else {
       UI.showOnlyButton(ui, 'btnLeave');
     }
+    
   }
+}
+function showSkipDiagnosisResultPopupThenHandoff(customer, needsData) {
+  const popupOverlay = document.getElementById('popupOverlay');
+  const resultPopup = document.getElementById('diagnosisResultPopup');
+  const resultText = document.getElementById('diagnosisResultText');
+  const btnOk = document.getElementById('btnDiagnosisResultOk');
+
+  if (!popupOverlay || !resultPopup || !resultText || !btnOk) {
+    console.error('[SKIP_DIAGNOSIS] Missing diagnosis result popup elements.');
+    // Fallback: do what you currently do (handoff immediately)
+    currentVisitState = Utils.VisitState.NoActiveVisit;
+    showHandoffScreen(customer, needsData);
+    return;
+  }
+
+  // Build display text using the same style as diagnosis.js (but we control the contents)
+  const diagnosed = currentDiagnosis?.diagnosed;
+  const constitutionText = diagnosed?.constitution ? diagnosed.constitution : '未明';
+
+  let displayText = '';
+  displayText += `體質： ${constitutionText}\n\n`;
+
+  // Needs: show labels (from needsData) if present, else 未明
+  if (diagnosed?.needs && diagnosed.needs.length > 0) {
+    const needsSummary = diagnosed.needs
+      .map(n => {
+        const nd = needsData.find(x => x.code === n.code);
+        return `  ${nd ? nd.label : n.code}`;
+      })
+      .join('\n');
+    displayText += `需求：\n${needsSummary}\n\n`;
+  } else {
+    displayText += `需求：未明\n\n`;
+  }
+
+  // Your requirement: always show 未明 to demonstrate consequence of skipping diagnosis
+  displayText += `毒性：未明`;
+
+  resultText.textContent = displayText;
+
+  // Show result popup
+  popupOverlay.style.display = 'flex';
+  popupOverlay.style.zIndex = '30000';
+  resultPopup.style.display = 'block';
+
+  // Make sure other popups are not visible
+  const typePopup = document.getElementById('typePopup');
+  const deathPopup = document.getElementById('deathPopup');
+  const pulsePopup = document.getElementById('pulsePopup');
+  if (typePopup) typePopup.style.display = 'none';
+  if (deathPopup) deathPopup.style.display = 'none';
+  if (pulsePopup) pulsePopup.style.display = 'none';
+
+  // Wire OK -> handoff (and clean up handler)
+  btnOk.onclick = () => {
+    popupOverlay.style.display = 'none';
+    resultPopup.style.display = 'none';
+    btnOk.onclick = null;
+
+    currentVisitState = Utils.VisitState.NoActiveVisit;
+    showHandoffScreen(customer, needsData);
+  };
 }
 
 function showCustomerGreeting() {
@@ -470,10 +533,35 @@ function showCustomerGreeting() {
       balloon.style.display = 'none';
       balloon.style.visibility = 'hidden';
       greetingShowing = false;
-      updateStatusAndUI(); // Show "Run Diagnosis" button
+      if (SKIP_DIAGNOSIS) {
+        // Build a diagnosis-like output without running diagnosis, so downstream export/handoff stays unchanged.
+        const truthState = {
+          constitution: customer.constitution,
+          needs: customer.needs.map(n => ({ code: n.code, isMain: n.isMain })),
+          toxicity: { current: customer.currentToxicity, max: customer.maxToxicity }
+        };
+      
+        const diagnosedState_final = {
+          constitution: customer.constitution,
+          needs: truthState.needs.map(n => ({ code: n.code, isMain: n.isMain })),
+          toxicity: '未明'
+        };
+      
+        currentDiagnosis = { truth: truthState, diagnosed: diagnosedState_final };
+      
+        // Show "diagnosis result" first (but we skipped diagnosis), then proceed to handoff on OK.
+        showSkipDiagnosisResultPopupThenHandoff(customer, needsData);
+        return;
+
+      }
+      
+      updateStatusAndUI(); // original flow: show "進行問診"
+      
     }, 300);
   }, 3000);
 }
+
+const SKIP_DIAGNOSIS = true; // flip to false to restore diagnosis flow
 
 // --- Button Handlers ---
 ui.btnReset.onclick = () => {
@@ -485,6 +573,19 @@ ui.btnReset.onclick = () => {
   typePopupVisible = false;
   deathPopupVisible = false;
   UI.hidePopupOverlay(ui);
+  // Also hide any popup screens that may have been left visible (reset must be a hard-clear)
+  const handoffScreen = document.getElementById('handoffScreen');
+  if (handoffScreen) handoffScreen.style.display = 'none';
+
+  const postAlchemyScreen = document.getElementById('postAlchemyScreen');
+  if (postAlchemyScreen) postAlchemyScreen.style.display = 'none';
+
+  const alchemyInputUI = document.getElementById('alchemyInputUI');
+  if (alchemyInputUI) alchemyInputUI.style.display = 'none';
+
+  const diagnosisResultPopup = document.getElementById('diagnosisResultPopup');
+  if (diagnosisResultPopup) diagnosisResultPopup.style.display = 'none';
+
   ui.logEl.textContent = '';
   log('*** ADMIN: customer reset to fresh state. ***');
   updateStatusAndUI();
@@ -515,7 +616,7 @@ ui.btnSpawn.onclick = () => {
     const pool = getAllowedConstitutionPoolByLevel(lvl);
     customer.assignConstitution(pool);
     log(`[SPAWN] playerLevelLatest=${lvl} pool=${pool.join('')} constitution=${customer.constitution}`);
-    customer.constitutionRevealed = false;
+    customer.constitutionRevealed = SKIP_DIAGNOSIS ? true : false;
   }
   
 
@@ -553,7 +654,7 @@ ui.btnSpawn.onclick = () => {
     const needsCodes = customer.needs.map(n => n.code + (n.isMain ? '(main)' : '')).join('');
     log(`Current needs: ${needsCodes}`);
   }
-  
+
   currentVisitState = Utils.VisitState.VisitInProgress;
   currentDiagnosis = null;
   log('Customer appears for a new visit.');
