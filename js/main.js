@@ -22,6 +22,14 @@ let savedPhaseForDebug = 'READY';
 // In-memory inbox: last received package (discarded on restore/reset)
 let mqttInboxLatest = null;
 let playerLevelLatest = null;
+function getAllowedConstitutionPoolByLevel(level) {
+  // Rule from coworker + your decision:
+  // Lv1: 火、土、水
+  // Lv2+: all
+  if (level <= 1) return ['火', '土', '水'];
+  return Utils.constitutionTypes;
+}
+
 
 // ---- MQTT (shared) ----
 const MQTT_TOPIC_BASE = 'thirza/alchemy/v1';
@@ -497,10 +505,19 @@ ui.btnSpawn.onclick = () => {
   const isFirstEver = customer.name === null;
   customer.assignNameAndVisuals();
   const wasConstitutionNull = (customer.constitution === null);
-  customer.assignConstitution(Utils.constitutionTypes);
+
   if (wasConstitutionNull) {
+    const lvl =
+      (typeof playerLevelLatest === 'number' && playerLevelLatest >= 1)
+        ? playerLevelLatest
+        : 1;
+  
+    const pool = getAllowedConstitutionPoolByLevel(lvl);
+    customer.assignConstitution(pool);
+    log(`[SPAWN] playerLevelLatest=${lvl} pool=${pool.join('')} constitution=${customer.constitution}`);
     customer.constitutionRevealed = false;
   }
+  
 
   
   if (isFirstEver) {
