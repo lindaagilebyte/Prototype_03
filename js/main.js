@@ -229,6 +229,7 @@ function snapshotCustomer() {
   return {
     name: customer.name,
     constitution: customer.constitution,
+    constitutionRevealed: customer.constitutionRevealed,
     needs: customer.needs, // already [{code,isMain}]
     primaryNeedCode: customer.primaryNeedCode,
     maxToxicity: customer.maxToxicity,
@@ -250,6 +251,7 @@ function applyCustomerSnapshot(data) {
 
   customer.name = data.name ?? null;
   customer.constitution = data.constitution ?? null;
+  customer.constitutionRevealed = (typeof data.constitutionRevealed === 'boolean') ? data.constitutionRevealed : false;
   customer.needs = Array.isArray(data.needs) ? data.needs : [];
   customer.primaryNeedCode = data.primaryNeedCode ?? null;
   customer.maxToxicity = data.maxToxicity ?? null;
@@ -397,9 +399,9 @@ function updateGameScreenControls() {
   if (currentVisitState === Utils.VisitState.NoActiveVisit) {
     UI.showOnlyButton(ui, 'btnSpawn');
   } else if (currentVisitState === Utils.VisitState.VisitInProgress) {
-    if (customer.constitution === null) {
+    if (!customer.constitutionRevealed) {
       UI.showOnlyButton(ui, 'btnClick');
-    } else if (greetingShowing) {
+    } else if (greetingShowing) {    
       // Hide button while greeting is showing
       UI.showOnlyButton(ui, null);
     } else if (currentDiagnosis === null) {
@@ -494,6 +496,12 @@ ui.btnSpawn.onclick = () => {
   // First-time setup: assign name and visuals
   const isFirstEver = customer.name === null;
   customer.assignNameAndVisuals();
+  const wasConstitutionNull = (customer.constitution === null);
+  customer.assignConstitution(Utils.constitutionTypes);
+  if (wasConstitutionNull) {
+    customer.constitutionRevealed = false;
+  }
+
   
   if (isFirstEver) {
     log(`Name assigned: ${customer.name}.`);
@@ -533,8 +541,8 @@ ui.btnSpawn.onclick = () => {
   currentDiagnosis = null;
   log('Customer appears for a new visit.');
   
-  // If constitution already assigned (returning customer), show greeting immediately
-  if (customer.constitution !== null) {
+  // If constitution already revealed (returning customer), show greeting immediately
+  if (customer.constitutionRevealed) {
     // Set flag immediately to prevent button from showing
     greetingShowing = true;
     updateStatusAndUI(); // Hide button immediately
@@ -578,9 +586,10 @@ ui.btnClick.onclick = () => {
     log('ClickCustomer ignored (no visit in progress).');
     return;
   }
-  if (customer.constitution === null) {
-    customer.assignConstitution(Utils.constitutionTypes);
-    log(`Constitution assigned: ${customer.constitution}.`);
+  if (!customer.constitutionRevealed) {
+    customer.constitutionRevealed = true;
+    saveRun('btnClick:revealConstitution');    
+    log(`Constitution revealed: ${customer.constitution}.`);
     UI.showTypePopup(ui, customer);
     typePopupVisible = true;
     deathPopupVisible = false;
@@ -588,10 +597,9 @@ ui.btnClick.onclick = () => {
     // Show greeting after type popup is closed
     // We'll trigger it when popup closes
   } else {
-    log('ClickCustomer ignored (constitution already assigned).');
+    log('ClickCustomer ignored (constitution already revealed).');
   }
   updateStatusAndUI();
-  saveRun('btnClick:assignConstitution');
 };
 
 ui.btnDiagnose.onclick = () => {
@@ -600,10 +608,10 @@ ui.btnDiagnose.onclick = () => {
     log('RunDiagnosis ignored (no visit in progress).');
     return;
   }
-  if (customer.constitution === null) {
-    log('RunDiagnosis ignored (constitution not assigned yet).');
+  if (!customer.constitutionRevealed) {
+    log('RunDiagnosis ignored (constitution not revealed yet).');
     return;
-  }
+  }  
   if (currentDiagnosis !== null) {
     log('RunDiagnosis ignored (diagnosis already done this visit).');
     return;

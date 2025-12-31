@@ -9,6 +9,7 @@ export class Customer {
   reset() {
     this.name = null;
     this.constitution = null;
+    this.constitutionRevealed = false;
     this.needs = [];  // Will be assigned on first visit
     this.primaryNeedCode = null;  // Fixed for this customer
     this.maxToxicity = null;  // Will be assigned on first visit (random 80-120)

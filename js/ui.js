@@ -51,8 +51,8 @@ export function updateButtons(ui, state) {
   // state = { popupActive, customer, visitState, diagnosis }
   const { popupActive, customer, visitState, diagnosis } = state;
   ui.btnSpawn.disabled = popupActive || !customer.alive || visitState !== 'NoActiveVisit';
-  ui.btnClick.disabled = popupActive || !customer.alive || visitState !== 'VisitInProgress' || customer.constitution !== null;
-  ui.btnDiagnose.disabled = popupActive || !customer.alive || visitState !== 'VisitInProgress' || customer.constitution === null || diagnosis !== null;
+  ui.btnClick.disabled = popupActive || !customer.alive || visitState !== 'VisitInProgress' || customer.constitutionRevealed;
+  ui.btnDiagnose.disabled = popupActive || !customer.alive || visitState !== 'VisitInProgress' || !customer.constitutionRevealed || diagnosis !== null;  
   ui.btnLeave.disabled = popupActive || !customer.alive || visitState !== 'VisitInProgress' || diagnosis === null;
 }
 
